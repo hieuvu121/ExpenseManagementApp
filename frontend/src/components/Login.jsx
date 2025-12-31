@@ -1,7 +1,7 @@
 import AuthLayout from "./AuthLayout";
 import "./AuthForm.css";
 
-export default function Login() {
+export default function Login({switchToSignUp}) {
   function handleSubmit(e) {
     e.preventDefault();
     // TODO: login logic
@@ -58,7 +58,7 @@ export default function Login() {
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Login&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
           </button>
 
-          <button className="button2" type="button">
+          <button className="button2" type="button" onClick={switchToSignUp}>
             Sign Up
           </button>
         </div>
