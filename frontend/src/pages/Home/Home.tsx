@@ -1,7 +1,7 @@
-import PendingExpense from "../../components/ecommerce/PendingExpense";
-import MonthlySalesChart from "../../components/ecommerce/MonthlySalesChart";
-import StatisticsChart from "../../components/ecommerce/StatisticsChart";
-import RecentExpense from "../../components/ecommerce/RecentExpense";
+import PendingExpense from "../../components/displayBox/PendingExpense";
+import MonthlySalesChart from "../../components/displayBox/MonthlyExpenseChart";
+import StatisticsChart from "../../components/displayBox/StatisticsChart";
+import RecentExpense from "../../components/displayBox/RecentExpense";
 import PageMeta from "../../components/common/PageMeta";
 
 export default function Home() {
