@@ -15,7 +15,7 @@ import DropzoneComponent from "../../components/form/form-elements/DropZone";
 type SplitMethod = "EQUAL" | "PERCENT" | "AMOUNT" | "SHARES";
 
 export default function AddExpense() {
-  // Demo members (sau này thay bằng data từ API / context group)
+  
   const members = useMemo(
     () => [
       { id: "u1", name: "Dung" },

@@ -15,7 +15,7 @@ export default function RecentExpense() {
   const data: ExpenseRow[] = [
     { member: "Hieu", category: "Food", amount: 24.5 },
     { member: "Phong", category: "Transport", amount: 12.0 },
-    { member: "Phong", category: "Utilities", amount: 89.3 },
+    
   ];
 
   function toggleDropdown() {
@@ -27,7 +27,7 @@ export default function RecentExpense() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:gap-6">
+    <div className="grid grid-cols-1 gap-4 md:gap-6 height-full w-full">
       <div className="h-full rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
         {/* Header */}
         <div className="flex items-start justify-between">
