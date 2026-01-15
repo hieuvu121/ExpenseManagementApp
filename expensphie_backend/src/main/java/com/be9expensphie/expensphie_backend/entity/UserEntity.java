@@ -46,5 +46,8 @@ public class UserEntity {
         if (this.isActive == null) {
             isActive = false;
         }
+        if (this.role == null) {
+            role = "ROLE_GUEST";
+        }
     }
 }

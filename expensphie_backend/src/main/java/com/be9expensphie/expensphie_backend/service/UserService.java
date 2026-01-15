@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.service;
 
 import java.util.UUID;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.dto.UserDTO;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 public class UserService {
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final PasswordEncoder passwordEncoder;
 
     public UserDTO registerUser(UserDTO userDTO) {
         UserEntity newUser = toEntity(userDTO);
@@ -33,7 +35,7 @@ public class UserService {
                 .id(userDTO.getId())
                 .fullName(userDTO.getFullName())
                 .email(userDTO.getEmail())
-                .password(userDTO.getPassword())
+                .password(passwordEncoder.encode(userDTO.getPassword()))
                 .role(userDTO.getRole())
                 .userImageUrl(userDTO.getUserImageUrl())
                 .createdAt(userDTO.getCreatedAt())
