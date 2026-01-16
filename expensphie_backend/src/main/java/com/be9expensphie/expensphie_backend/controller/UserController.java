@@ -41,7 +41,7 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody AuthDTO authDTO) {
         try {
-            if (!userService.isAccountActive(authDTO.getEmmai())) {
+            if (!userService.isAccountActive(authDTO.getEmail())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
                     "message", "Account is not yet active. Please activate the account first"
                 ));
@@ -53,5 +53,11 @@ public class UserController {
                     "message", e.getMessage()
                 ));
         }
+    }
+
+    // Test jwt filter by accessing this endpoint after login
+    @GetMapping("/test-auth")
+    public String checkAuth() {
+        return "Auth impl is successful";
     }
 }

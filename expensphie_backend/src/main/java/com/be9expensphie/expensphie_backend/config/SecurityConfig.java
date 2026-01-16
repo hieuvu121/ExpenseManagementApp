@@ -13,7 +13,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.be9expensphie.expensphie_backend.security.JwtRequestFilter;
 import com.be9expensphie.expensphie_backend.service.AppUserDetailsService;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final AppUserDetailsService appUserDetailsService;
+    private final JwtRequestFilter jwtRequestFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception{
@@ -31,7 +34,8 @@ public class SecurityConfig {
                             .authorizeHttpRequests(request -> request.requestMatchers("/app-status", "/register", "/activate", "/login").permitAll()
                             .anyRequest().authenticated())
                             .httpBasic(Customizer.withDefaults())
-                            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                            .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
     }
 

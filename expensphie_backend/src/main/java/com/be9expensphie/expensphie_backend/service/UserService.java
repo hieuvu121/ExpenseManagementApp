@@ -15,6 +15,7 @@ import com.be9expensphie.expensphie_backend.dto.AuthDTO;
 import com.be9expensphie.expensphie_backend.dto.UserDTO;
 import com.be9expensphie.expensphie_backend.entity.UserEntity;
 import com.be9expensphie.expensphie_backend.repository.UserRepository;
+import com.be9expensphie.expensphie_backend.util.JwtUtil;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +26,7 @@ public class UserService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
 
     public UserDTO registerUser(UserDTO userDTO) {
         UserEntity newUser = toEntity(userDTO);
@@ -107,11 +109,12 @@ public class UserService {
 
     public Map<String, Object> authenticateAndGenerateToken(AuthDTO authDTO) {
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(authDTO.getEmmai(), authDTO.getPassword()));
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(authDTO.getEmail(), authDTO.getPassword()));
             //Generate JWT token
+            String token = jwtUtil.generateToken(authDTO.getEmail());
             return Map.of(
-                "token", "JWT token",
-                "user", getPublicUser(authDTO.getEmmai())
+                "token", token,
+                "user", getPublicUser(authDTO.getEmail())
             );
         } catch (Exception e) {
             throw new RuntimeException("Invalid email or password");

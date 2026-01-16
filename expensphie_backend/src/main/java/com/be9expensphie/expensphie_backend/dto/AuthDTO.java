@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class AuthDTO {
-    private String emmai;
+    private String email;
     private String password;
     private String token;
 }
