@@ -1,0 +1,49 @@
+package com.be9expensphie.expensphie_backend.entity;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+
+@Entity
+@Table(name = "household_members",
+		uniqueConstraints=@UniqueConstraint(
+				columnNames= {"household_id","user_id"}
+				)
+)
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+
+public class HouseholdMember {
+	 @Id
+	 @GeneratedValue(strategy = GenerationType.IDENTITY)
+	 private Long id;
+	 
+	 private String role;
+	 
+	 @ManyToOne
+	 @JoinColumn(name="user_id")
+	 private UserEntity user;
+	 
+	 @ManyToOne
+	 @JoinColumn(name="household_id")
+	 private Household household;
+	 
+
+}
