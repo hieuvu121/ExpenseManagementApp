@@ -1,6 +1,7 @@
 package com.be9expensphie.expensphie_backend.dto.CreateHouseholdDTO;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
