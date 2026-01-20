@@ -33,6 +33,8 @@ public class UserEntity {
     private String password;
     private String role;
     private String userImageUrl;
+    private String resetOtp;
+    private Long resetOtpExpiresAt;
     @Column(updatable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;
