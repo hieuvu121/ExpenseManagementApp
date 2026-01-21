@@ -4,6 +4,7 @@ import java.util.Date;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.entity.ForgotPasswordEntity;
@@ -19,6 +20,7 @@ public class ForgotPasswordService {
     private final ForgotPasswordRepository forgotPasswordRepository;
     private final EmailService emailService;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @SuppressWarnings("null")
     public void verifyEmail(String email) {
@@ -26,7 +28,7 @@ public class ForgotPasswordService {
                                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
         Integer otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
         String subject = "OTP for Forgot Password Request";
-        String body = "Please use this OTP to reset your password within 2 minutes";
+        String body = "Please use this OTP to reset your password within 2 minutes: " + otp;
         emailService.sendEmail(email, subject, body);
 
         ForgotPasswordEntity fp = ForgotPasswordEntity.builder()
@@ -47,8 +49,13 @@ public class ForgotPasswordService {
             forgotPasswordRepository.deleteById(fp.getFpid());
             return false;
         }
-
+        // Delete to prevent reuse
         forgotPasswordRepository.deleteById(fp.getFpid());
         return true;
+    }
+
+    public void changePassword(String email, String newPassword) {
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        userRepository.updatePassword(email, encodedPassword);
     }
 }
