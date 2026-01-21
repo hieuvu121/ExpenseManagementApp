@@ -10,6 +10,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -33,8 +34,6 @@ public class UserEntity {
     private String password;
     private String role;
     private String userImageUrl;
-    private String resetOtp;
-    private Long resetOtpExpiresAt;
     @Column(updatable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;
@@ -42,6 +41,9 @@ public class UserEntity {
     private LocalDateTime updatedAt;
     private Boolean isActive;
     private String activationToken;
+
+    @OneToOne(mappedBy = "userEntity")
+    private ForgotPasswordEntity forgotPasswordEntity;
 
     @PrePersist
     public void prePersist() {

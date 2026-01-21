@@ -2,7 +2,6 @@ package com.be9expensphie.expensphie_backend.service;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -49,8 +48,6 @@ public class UserService {
                 .password(passwordEncoder.encode(userDTO.getPassword()))
                 .role(userDTO.getRole())
                 .userImageUrl(userDTO.getUserImageUrl())
-                .resetOtp(null)
-                .resetOtpExpiresAt(0L)
                 .createdAt(userDTO.getCreatedAt())
                 .updatedAt(userDTO.getUpdatedAt())
                 .build();
@@ -124,46 +121,5 @@ public class UserService {
         }
     }
 
-    public void sendResetOtp(String email) {
-        UserEntity existingUser = userRepository.findByEmail(email)
-                                                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
-        //Generate 6 digit otp
-        String otp = String.valueOf(ThreadLocalRandom.current().nextInt(100000, 1000000));
-
-        //Calculate expirytime(current time + 2 minutes in millisecond)
-        long expiryTime = System.currentTimeMillis() + (2 * 60 * 1000);
-
-        //Update userentity
-        existingUser.setResetOtp(otp);
-        existingUser.setResetOtpExpiresAt(expiryTime);
-
-        userRepository.save(existingUser);
-
-        try {
-            // Send reset otp email
-            String subject = "Password Reset OTP";
-            String body = "Your OTP is " + otp + ". Please use this to reset your password within 2 minutes";
-            emailService.sendEmail(email, subject, body);
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to send email");
-        }
-    }
-
-    public void resetPassword(String email, String otp, String newPassword) {
-        UserEntity existingUser = userRepository.findByEmail(email)
-                                                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
-        if (existingUser.getResetOtp() == null || !existingUser.getResetOtp().equals(otp)) {
-            throw new RuntimeException("Invalid OTP");
-        }
-
-        if (existingUser.getResetOtpExpiresAt() < System.currentTimeMillis()) {
-            throw new RuntimeException("OTP expired");
-        }
-
-        existingUser.setPassword(passwordEncoder.encode(newPassword));
-        existingUser.setResetOtp(null);
-        existingUser.setResetOtpExpiresAt(0L);
-
-        userRepository.save(existingUser);
-    }
+    
 }
