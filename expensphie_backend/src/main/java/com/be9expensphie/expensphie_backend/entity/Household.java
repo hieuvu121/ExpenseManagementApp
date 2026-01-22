@@ -8,6 +8,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,14 +39,19 @@ public class Household {
     private String name;
     
     @Column(unique=true,nullable=false)
-    private int code;
+    private String code;
     
     @OneToMany(mappedBy="household",cascade=CascadeType.ALL,orphanRemoval=true)
     private List<HouseholdMember> members;
     
     //regarding design aspect this can achieve through intermediate entity
-    @ManyToOne
-    @JoinColumn(name="created_by", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "created_by",
+        referencedColumnName = "id",
+        nullable = false
+    )
     private UserEntity createdBy;
+
 
 }

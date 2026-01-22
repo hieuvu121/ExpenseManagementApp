@@ -33,7 +33,7 @@ public class UserService {
         newUser.setActivationToken(UUID.randomUUID().toString());
         newUser = userRepository.save(newUser);
         // Send activation email
-        String activationLink = "http://localhost:8080/app/v1/activate?token=" + newUser.getActivationToken();
+        String activationLink = "http://localhost:8081/app/v1/activate?token=" + newUser.getActivationToken();
         String subject = "Activate your Expensphie account";
         String body = "Click on the following link to activate your account: " + activationLink;
         emailService.sendEmail(newUser.getEmail(), subject, body);
@@ -108,16 +108,22 @@ public class UserService {
     }
 
     public Map<String, Object> authenticateAndGenerateToken(AuthDTO authDTO) {
-        try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(authDTO.getEmail(), authDTO.getPassword()));
-            //Generate JWT token
-            String token = jwtUtil.generateToken(authDTO.getEmail());
-            return Map.of(
-                "token", token,
-                "user", getPublicUser(authDTO.getEmail())
-            );
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid email or password");
-        }
+
+        Authentication authentication = authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(
+                authDTO.getEmail(),
+                authDTO.getPassword()
+            )
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        String token = jwtUtil.generateToken(authentication.getName());
+
+        return Map.of(
+            "token", token,
+            "user", getPublicUser(authentication.getName())
+        );
     }
+
 }
