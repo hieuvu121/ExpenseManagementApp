@@ -120,6 +120,4 @@ public class UserService {
             throw new RuntimeException("Invalid email or password");
         }
     }
-
-    
 }
