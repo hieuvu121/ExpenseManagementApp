@@ -46,15 +46,12 @@ public class HouseholdMember {
 	 private HouseholdRole role;
 	 
 	 @ManyToOne
-	 @JoinColumn(name="user_id", nullable=false)
+	 @JoinColumn(name="user_id")
 	 private UserEntity user;
 	 
 	 @ManyToOne
-	 @JoinColumn(name="household_id",nullable=false)
+	 @JoinColumn(name="household_id")
 	 private Household household;
 	 
-	 public HouseholdRole getRole() {
-		 return role;
-	 }
 
 }

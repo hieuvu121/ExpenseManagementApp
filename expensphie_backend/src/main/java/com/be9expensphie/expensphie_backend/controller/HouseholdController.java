@@ -35,32 +35,28 @@ public class HouseholdController {
     //create household
     @PostMapping("/create")
     public ResponseEntity<CreateResponse> createHousehold(
-            @Valid @RequestBody CreateRequest request,
-            Authentication authentication
+            @Valid @RequestBody CreateRequest request
     ) {
         return ResponseEntity.ok(
-                householdService.create(request, authentication)
+                householdService.create(request)
         );
     }
 
     //join household
     @PostMapping("/join")
     public ResponseEntity<JoinHouseholdResponseDTO> joinHousehold(
-            @Valid @RequestBody JoinHouseholdRequestDTO request,
-            Authentication authentication
+            @Valid @RequestBody JoinHouseholdRequestDTO request
     ) {
         return ResponseEntity.ok(
-                householdService.joinHousehold(request, authentication)
+                householdService.joinHousehold(request)
         );
     }
 
     //get household
     @GetMapping("/my")
-    public ResponseEntity<List<HouseholdDTO>> getHousehold(
-            Authentication authentication
-    ) {
+    public ResponseEntity<List<HouseholdDTO>> getHousehold() {
         return ResponseEntity.ok(
-                householdService.getHousehold(authentication)
+                householdService.getHousehold()
         );
     }
 }

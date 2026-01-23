@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.dto.HouseholdDTO;
@@ -18,7 +17,6 @@ import com.be9expensphie.expensphie_backend.entity.UserEntity;
 import com.be9expensphie.expensphie_backend.enums.HouseholdRole;
 import com.be9expensphie.expensphie_backend.repository.HouseholdMemberRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdRepository;
-import com.be9expensphie.expensphie_backend.repository.UserRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -28,19 +26,14 @@ import lombok.RequiredArgsConstructor;
 public class HouseholdService {
 	private final HouseholdRepository householdRepository;
 	private final HouseholdMemberRepository householdmemberRepository;
-	private final UserRepository userRepository;
-	
+	private final UserService userService;
 	//check and get user that currently login
-	private UserEntity getCurrentUser(Authentication authentication) {
-        String email = authentication.getName();
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    } 
+	
 	
 	//create household
 	@Transactional
-	public CreateResponse create(CreateRequest request, Authentication authentication) {
-		UserEntity user=getCurrentUser(authentication);
+	public CreateResponse create(CreateRequest request) {
+		UserEntity user=userService.getCurrentUser();
 		
 		//checking existing name
 		if(householdRepository.existsByName(request.getName())) {
@@ -70,9 +63,9 @@ public class HouseholdService {
 	
 	//join household
 	@Transactional
-	public JoinHouseholdResponseDTO joinHousehold(JoinHouseholdRequestDTO request, Authentication authentication) {
+	public JoinHouseholdResponseDTO joinHousehold(JoinHouseholdRequestDTO request) {
 		
-		UserEntity user=getCurrentUser(authentication);
+		UserEntity user=userService.getCurrentUser();
 		//check if household exist 
 		Household household = householdRepository.findByCode(request.getCode())
 		        .orElseThrow(() -> new RuntimeException("Household not found"));
@@ -82,35 +75,26 @@ public class HouseholdService {
 				householdmemberRepository.findByUserAndHousehold(user,household);
 		
 		//exist-> return response
-		if(existing.isPresent()) {
-			HouseholdMember member=existing.get();
-			return JoinHouseholdResponseDTO.builder()
-					.householdId(household.getId())
-					.householdName(household.getName())
-					.role(member.getRole().name())
-					.build();
-		}else {
-			//first time-> create and save member
-			HouseholdMember member = HouseholdMember.builder()
-			        .household(household)
-			        .user(user)
-			        .role(HouseholdRole.ROLE_MEMBER)
-			        .build();
-			householdmemberRepository.save(member);
-			
-			return JoinHouseholdResponseDTO.builder()
-					.householdId(household.getId())
-					.householdName(household.getName())
-					.role(member.getRole().name())
-					.build();
+		HouseholdMember member=existing.orElseGet(() -> {
+		    HouseholdMember newMember = HouseholdMember.builder()
+		            .household(household)
+		            .user(user)
+		            .role(HouseholdRole.ROLE_MEMBER)
+		            .build();
+		    return householdmemberRepository.save(newMember);
+		});
 
+		return JoinHouseholdResponseDTO.builder()
+		        .householdId(household.getId())
+		        .householdName(household.getName())
+		        .role(member.getRole().name())
+		        .build();
 		}
-	}
 	
 	//get current household list
 	@Transactional
-	public List<HouseholdDTO> getHousehold(Authentication authentication){
-		UserEntity user=getCurrentUser(authentication);
+	public List<HouseholdDTO> getHousehold(){
+		UserEntity user=userService.getCurrentUser();
 		return householdmemberRepository.findByUser(user)
 				.stream()
 				.map(m-> HouseholdDTO.builder()
