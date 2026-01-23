@@ -46,11 +46,11 @@ public class HouseholdMember {
 	 private HouseholdRole role;
 	 
 	 @ManyToOne
-	 @JoinColumn(name="user_id")
+	 @JoinColumn(name="user_id", nullable=false)
 	 private UserEntity user;
 	 
 	 @ManyToOne
-	 @JoinColumn(name="household_id")
+	 @JoinColumn(name="household_id",nullable=false)
 	 private Household household;
 	 
 	 public HouseholdRole getRole() {

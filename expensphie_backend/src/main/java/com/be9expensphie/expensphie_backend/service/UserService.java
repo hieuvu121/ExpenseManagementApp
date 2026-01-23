@@ -33,7 +33,7 @@ public class UserService {
         newUser.setActivationToken(UUID.randomUUID().toString());
         newUser = userRepository.save(newUser);
         // Send activation email
-        String activationLink = "http://localhost:8081/app/v1/activate?token=" + newUser.getActivationToken();
+        String activationLink = "http://localhost:8080/app/v1/activate?token=" + newUser.getActivationToken();
         String subject = "Activate your Expensphie account";
         String body = "Click on the following link to activate your account: " + activationLink;
         emailService.sendEmail(newUser.getEmail(), subject, body);
