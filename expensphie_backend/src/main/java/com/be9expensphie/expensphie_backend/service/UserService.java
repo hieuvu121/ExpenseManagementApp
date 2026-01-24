@@ -108,22 +108,16 @@ public class UserService {
     }
 
     public Map<String, Object> authenticateAndGenerateToken(AuthDTO authDTO) {
-
-        Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(
-                authDTO.getEmail(),
-                authDTO.getPassword()
-            )
-        );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        String token = jwtUtil.generateToken(authentication.getName());
-
-        return Map.of(
-            "token", token,
-            "user", getPublicUser(authentication.getName())
-        );
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(authDTO.getEmail(), authDTO.getPassword()));
+            //Generate JWT token
+            String token = jwtUtil.generateToken(authDTO.getEmail());
+            return Map.of(
+                "token", token,
+                "user", getPublicUser(authDTO.getEmail())
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid email or password");
+        }
     }
-
 }
