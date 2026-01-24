@@ -27,7 +27,6 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/households")
 @RequiredArgsConstructor
-@PreAuthorize("isAuthenticated()")
 public class HouseholdController {
 
     private final HouseholdService householdService;
