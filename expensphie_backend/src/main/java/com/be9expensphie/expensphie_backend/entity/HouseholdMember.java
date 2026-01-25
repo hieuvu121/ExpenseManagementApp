@@ -30,7 +30,6 @@ import lombok.NoArgsConstructor;
 				columnNames= {"household_id","user_id"}
 				)
 )
-@Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
