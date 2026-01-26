@@ -13,7 +13,6 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
@@ -21,8 +20,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Getter
-	
+@Data
 public class ExpenseSplitDetailsEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

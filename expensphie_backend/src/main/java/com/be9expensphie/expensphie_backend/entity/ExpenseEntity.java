@@ -3,11 +3,9 @@ package com.be9expensphie.expensphie_backend.entity;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
-import com.be9expensphie.expensphie_backend.enums.HouseholdRole;
 import com.be9expensphie.expensphie_backend.enums.Method;
 
 import jakarta.persistence.CascadeType;
@@ -22,11 +20,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
@@ -34,8 +30,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Getter
-
+@Data
 public class ExpenseEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
