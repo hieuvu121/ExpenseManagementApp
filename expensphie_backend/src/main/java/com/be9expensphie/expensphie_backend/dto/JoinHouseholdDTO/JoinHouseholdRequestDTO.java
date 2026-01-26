@@ -1,5 +1,5 @@
 package com.be9expensphie.expensphie_backend.dto.JoinHouseholdDTO;
-import lombok.Builder;
+
 import lombok.Data;
 
 @Data
