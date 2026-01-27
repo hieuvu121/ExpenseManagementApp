@@ -37,10 +37,13 @@ public class ExpenseEntity {
 	private Long id;
 	
 	@Column(nullable=false)
-	BigDecimal amount;
-	String currency;
-	LocalDate date;
-	
+	private BigDecimal amount;
+	@Column(nullable=false)
+	private String currency;
+	@Column(nullable=false)
+	private LocalDate date;
+	@Column(nullable=false)
+	private String category;
 	@Enumerated(EnumType.STRING)
 	@Column(nullable=false)
 	private ExpenseStatus status;
@@ -48,7 +51,6 @@ public class ExpenseEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable=false)
 	private Method method;
-	
 	
 	//who create expense, 1 member can create many
 	@ManyToOne
@@ -65,6 +67,7 @@ public class ExpenseEntity {
             cascade = CascadeType.ALL,
             orphanRemoval = true
         )
+	@Builder.Default
 	private List<ExpenseSplitDetailsEntity> splitDetails=new ArrayList<>();
 
 }
