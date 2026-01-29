@@ -1,6 +1,7 @@
 package com.be9expensphie.expensphie_backend.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -12,6 +13,8 @@ import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
 import com.be9expensphie.expensphie_backend.entity.UserEntity;
 import com.be9expensphie.expensphie_backend.dto.SettlementDTO.SettlementDTO;
 import com.be9expensphie.expensphie_backend.entity.ExpenseSplitDetailsEntity;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import com.be9expensphie.expensphie_backend.repository.ExpenseRepository;
@@ -79,6 +82,27 @@ public class SettlementService {
 
         SettlementEntity newSettlement = settlementRepository.save(settlement);
         return toDTO(newSettlement);
+    }
+
+    @SuppressWarnings("null")
+    public Map<String, Object> getCurrentMonthSettlementStatisticsForMember(Long memberId, Long householdId) {
+        UserEntity user = userService.getCurrentUser();
+        HouseholdMember householdMember = householdMemberRepository
+                .findByUserAndHousehold(user, householdRepository.findById(householdId)
+                        .orElseThrow(() -> new IllegalArgumentException("Household not found")))
+                .orElseThrow(() -> new IllegalArgumentException("Household member not found"));
+        if (!householdMember.getId().equals(memberId)) {
+            throw new IllegalArgumentException("Unauthorized access to settlement statistics");
+        }
+        if (!householdId.equals(householdMember.getHousehold().getId())) {
+            throw new IllegalArgumentException("Household member does not belong to the specified household");
+        }
+        List<SettlementEntity> currentMonthPendingSettlements = settlementRepository.findCurrentMonthPendingSettlementsForMember(householdMember);
+        BigDecimal totalPendingAmount = settlementRepository.findCurrentMonthTotalPendingAmountForMember(householdMember);
+        return Map.of(
+                "pendingSettlements", currentMonthPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
+                "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO
+        );
     }
 
     public SettlementDTO toDTO(SettlementEntity settlementEntity) {

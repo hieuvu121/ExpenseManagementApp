@@ -1,6 +1,7 @@
 package com.be9expensphie.expensphie_backend.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,5 +50,12 @@ public class SettlementController {
             @PathVariable Long settlementId, @PathVariable Long memberId) {
         SettlementDTO updatedSettlement = settlementService.toggleSettlementStatus(settlementId, memberId);
         return ResponseEntity.ok(updatedSettlement);
+    }
+
+    @GetMapping("/pending/{memberId}/{householdId}/current-month")
+    public ResponseEntity<Map<String, Object>> getCurrentMonthPendingSettlements(
+            @PathVariable Long memberId, @PathVariable Long householdId) {
+        Map<String, Object> result = settlementService.getCurrentMonthSettlementStatisticsForMember(memberId, householdId);
+        return ResponseEntity.ok(result);
     }
 }
