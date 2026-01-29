@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.be9expensphie.expensphie_backend.entity.HouseholdMember;
 import com.be9expensphie.expensphie_backend.entity.SettlementEntity;
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
+import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
 import com.be9expensphie.expensphie_backend.entity.UserEntity;
 import com.be9expensphie.expensphie_backend.dto.SettlementDTO.SettlementDTO;
 import com.be9expensphie.expensphie_backend.entity.ExpenseSplitDetailsEntity;
@@ -47,6 +48,37 @@ public class SettlementService {
                 ExpenseStatus.APPROVED);
 
         return settlements.stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    // Only done by corresponding fromMember
+    @SuppressWarnings("null")
+    public SettlementDTO toggleSettlementStatus(Long settlementId, Long memberId) {
+        UserEntity user = userService.getCurrentUser();
+        HouseholdMember householdMember = householdMemberRepository
+                .findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("Household member not found"));
+        if (!householdMember.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Unauthorized access to toggle settlement status");
+        }
+        SettlementEntity settlement = settlementRepository.findById(settlementId)
+                .orElseThrow(() -> new IllegalArgumentException("Settlement not found"));
+        if (!settlement.getFromMember().getId().equals(memberId)) {
+            throw new IllegalArgumentException("Unmatch member for toggling settlement status");
+        }
+
+        switch (settlement.getStatus()) {
+            case PENDING:
+                settlement.setStatus(SettlementStatus.COMPLETED);
+                break;
+            case COMPLETED:
+                settlement.setStatus(SettlementStatus.PENDING);
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid settlement status");
+        }
+
+        SettlementEntity newSettlement = settlementRepository.save(settlement);
+        return toDTO(newSettlement);
     }
 
     public SettlementDTO toDTO(SettlementEntity settlementEntity) {

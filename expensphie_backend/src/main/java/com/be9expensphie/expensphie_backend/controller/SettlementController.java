@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,5 +42,12 @@ public class SettlementController {
                         request.getExpenseSplitDetailsId(),
                         request.getFromMemberId(),
                         request.getToMemberId()));
+    }
+
+    @PutMapping("/{settlementId}/toggle/{memberId}")
+    public ResponseEntity<SettlementDTO> toggleSettlementStatus(
+            @PathVariable Long settlementId, @PathVariable Long memberId) {
+        SettlementDTO updatedSettlement = settlementService.toggleSettlementStatus(settlementId, memberId);
+        return ResponseEntity.ok(updatedSettlement);
     }
 }
