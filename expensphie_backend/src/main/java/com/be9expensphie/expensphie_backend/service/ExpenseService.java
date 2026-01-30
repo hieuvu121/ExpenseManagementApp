@@ -1,7 +1,5 @@
 package com.be9expensphie.expensphie_backend.service;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,7 +7,6 @@ import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
 import com.be9expensphie.expensphie_backend.enums.HouseholdRole;
-import com.be9expensphie.expensphie_backend.enums.Method;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseRequestDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseResponseDTO;
 import com.be9expensphie.expensphie_backend.dto.SplitDTO.SplitRequestDTO;
@@ -114,5 +111,31 @@ public class ExpenseService {
 		return expenses.stream()
 				.map(this::toDTO)
 				.toList();
+	}
+
+	public CreateExpenseResponseDTO getSingleExpense(Long householdId, Long expenseId) {
+		UserEntity currentUser=userService.getCurrentUser();
+		
+		//check household exist
+		Household household=householdRepo.findById(householdId)
+				.orElseThrow(()->new RuntimeException("No household found"));
+		
+		//check user belong to group
+		HouseholdMember member=householdMemberRepo
+				.findByUserAndHousehold(currentUser,household)
+				.orElseThrow(()->new RuntimeException("User not in this group"));
+		
+		ExpenseEntity expense=expenseRepo.findByIdAndHousehold(expenseId, household)
+				.orElseThrow(()->new RuntimeException("Expense not found"));
+		
+		return CreateExpenseResponseDTO.builder()
+				.id(expense.getId())
+	            .amount(expense.getAmount())
+	            .category(expense.getCategory())
+	            .date(expense.getDate())
+	            .status(expense.getStatus())
+	            .method(expense.getMethod())
+				.build()
+				;
 	}
 }

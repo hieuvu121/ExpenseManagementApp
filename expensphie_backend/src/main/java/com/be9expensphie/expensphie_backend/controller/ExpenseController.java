@@ -44,5 +44,15 @@ public class ExpenseController {
 		List<CreateExpenseResponseDTO> expenses=expenseService.getExpense(householdId);
 		return ResponseEntity.ok(expenses);
 	}
+	
+	//get single expense
+	@GetMapping("/{expenseId}")
+	public ResponseEntity<CreateExpenseResponseDTO> getSingleExpense(
+			@PathVariable Long householdId,
+			@PathVariable Long expenseId
+			){
+		CreateExpenseResponseDTO response=expenseService.getSingleExpense(householdId,expenseId);
+		return ResponseEntity.ok(response);
+	}
 
 }

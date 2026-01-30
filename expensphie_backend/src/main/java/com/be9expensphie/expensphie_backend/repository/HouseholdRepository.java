@@ -15,7 +15,9 @@ public interface HouseholdRepository extends JpaRepository<Household,Long> {
 	
 	//use for checking unique name when create
 	boolean existsByName(String name);
+	
 	Optional<Household>findByCode(String code);
+	
 
 }
 
