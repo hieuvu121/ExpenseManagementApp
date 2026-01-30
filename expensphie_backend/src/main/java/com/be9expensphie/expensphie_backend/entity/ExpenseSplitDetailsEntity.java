@@ -10,19 +10,24 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "expense_split_details")
+@Table(name = "expense_split_details",
+	uniqueConstraints = {
+		@UniqueConstraint(
+			columnNames = {"expense_id","member_id"}
+		)
+	}
+)
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Getter
-	
+@Data
 public class ExpenseSplitDetailsEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,5 +1,6 @@
 package com.be9expensphie.expensphie_backend.entity;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -52,6 +53,9 @@ public class Household {
         nullable = false
     )
     private UserEntity createdBy;
-
-
+    
+    @OneToMany(mappedBy = "household")
+    @Builder.Default
+    private List<ExpenseEntity> expenses = new ArrayList<>();
+   
 }
