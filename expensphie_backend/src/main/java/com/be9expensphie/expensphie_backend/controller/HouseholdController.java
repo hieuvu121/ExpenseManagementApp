@@ -3,9 +3,6 @@ package com.be9expensphie.expensphie_backend.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,7 +14,6 @@ import com.be9expensphie.expensphie_backend.dto.CreateHouseholdDTO.CreateRequest
 import com.be9expensphie.expensphie_backend.dto.CreateHouseholdDTO.CreateResponse;
 import com.be9expensphie.expensphie_backend.dto.JoinHouseholdDTO.JoinHouseholdRequestDTO;
 import com.be9expensphie.expensphie_backend.dto.JoinHouseholdDTO.JoinHouseholdResponseDTO;
-import com.be9expensphie.expensphie_backend.entity.UserEntity;
 
 import com.be9expensphie.expensphie_backend.service.HouseholdService;
 import jakarta.validation.Valid;
