@@ -70,4 +70,8 @@ public class ExpenseEntity {
 	@Builder.Default
 	private List<ExpenseSplitDetailsEntity> splitDetails=new ArrayList<>();
 
+    @ManyToOne
+    @JoinColumn(name = "household_id")
+    private Household household;
+
 }

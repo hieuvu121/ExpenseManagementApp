@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.be9expensphie.expensphie_backend.entity.Household;
 import com.be9expensphie.expensphie_backend.entity.HouseholdMember;
 import com.be9expensphie.expensphie_backend.entity.UserEntity;
+import com.be9expensphie.expensphie_backend.enums.HouseholdRole;
 
 public interface HouseholdMemberRepository extends JpaRepository<HouseholdMember,Long> {
 	
@@ -26,5 +27,8 @@ public interface HouseholdMemberRepository extends JpaRepository<HouseholdMember
 		//return group list
 		List<HouseholdMember> findByUser(UserEntity user);
 		
-	
+		//find admin of a group
+		Optional<HouseholdMember> findByHouseholdAndRole(Household household, HouseholdRole role);
+
+		
 }
