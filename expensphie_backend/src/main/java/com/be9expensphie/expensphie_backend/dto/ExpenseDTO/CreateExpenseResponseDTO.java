@@ -18,5 +18,6 @@ public class CreateExpenseResponseDTO {
     private String category;
     private ExpenseStatus status;
     private Method method;
+    private String currency;
 }
 

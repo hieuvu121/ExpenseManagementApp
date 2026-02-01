@@ -17,5 +17,6 @@ public class CreateExpenseRequestDTO {
     @NotBlank
     private String category;
     private Method method;
+    private String currency;
     private List<SplitRequestDTO> splits;
 }

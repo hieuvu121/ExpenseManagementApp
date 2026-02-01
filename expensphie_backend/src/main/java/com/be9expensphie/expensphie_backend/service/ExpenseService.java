@@ -60,6 +60,7 @@ public class ExpenseService {
 				.reviewed_by(member)
 				.reviewed_by(admin)
 				.date(createRequest.getDate())
+				.currency(createRequest.getCurrency())
 				.build();
 		
 		//take splits and store;  
@@ -73,15 +74,9 @@ public class ExpenseService {
 					.build();
 			expense.getSplitDetails().add(splitDetails); 
 		}
-		expenseRepo.save(expense);
+		ExpenseEntity savedExpense=expenseRepo.save(expense);
 		
-		return CreateExpenseResponseDTO.builder()
-				.amount(createRequest.getAmount())
-				.status(status)
-				.category(createRequest.getCategory())
-				.date(createRequest.getDate())
-				.method(createRequest.getMethod())
-				.build();
+		return toDTO(savedExpense);
 	}
 	
 	//convert entity to dto
@@ -93,6 +88,7 @@ public class ExpenseService {
 	            .status(expense.getStatus())
 	            .date(expense.getDate())
 	            .method(expense.getMethod())
+	            .currency(expense.getCurrency())
 	            .build();
 	}
 
@@ -135,6 +131,7 @@ public class ExpenseService {
 	            .date(expense.getDate())
 	            .status(expense.getStatus())
 	            .method(expense.getMethod())
+	            .currency(expense.getCurrency())
 				.build()
 				;
 	}
