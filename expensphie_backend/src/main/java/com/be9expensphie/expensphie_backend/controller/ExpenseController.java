@@ -3,7 +3,10 @@ package com.be9expensphie.expensphie_backend.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,5 +54,37 @@ public class ExpenseController {
 		CreateExpenseResponseDTO response=expenseService.getSingleExpense(householdId,expenseId);
 		return ResponseEntity.ok(response);
 	}
+	
+	//approve expense
+	@PatchMapping("/{expenseId}/approve")
+	@PreAuthorize("@householdSecurity.isAdmin(#householdId)")
+	public ResponseEntity<?> approveExpense(
+			@PathVariable Long householdId,
+			@PathVariable Long expenseId
+			){
+		return ResponseEntity.ok(expenseService.acceptExpense(householdId, expenseId));
+	}
+	
+	//rollback expense
+	@PatchMapping("/{expenseId}/rollback")
+	@PreAuthorize("@householdSecurity.isAdmin(#householdId)")
+	public ResponseEntity<?> rollbackExpense(
+			@PathVariable Long householdId,
+			@PathVariable Long expenseId
+			){
+		return ResponseEntity.ok(expenseService.rollback(householdId,expenseId));
+	}
+	
+	//delete
+	@DeleteMapping("/{expenseId}/reject")
+    @PreAuthorize("@householdSecurity.isAdmin(#householdId)")
+    public ResponseEntity<?> rejectExpense(
+            @PathVariable Long householdId,
+            @PathVariable Long expenseId
+            ){
+        expenseService.rejectExpense(householdId, expenseId);
+        return ResponseEntity.noContent().build();
+    }
+	
 
 }

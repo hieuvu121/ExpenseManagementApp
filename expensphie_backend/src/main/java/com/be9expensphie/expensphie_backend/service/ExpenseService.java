@@ -1,8 +1,10 @@
 package com.be9expensphie.expensphie_backend.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
@@ -18,6 +20,7 @@ import com.be9expensphie.expensphie_backend.entity.UserEntity;
 import com.be9expensphie.expensphie_backend.repository.ExpenseRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdMemberRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdRepository;
+import com.be9expensphie.expensphie_backend.security.HouseholdSecurity;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ public class ExpenseService {
 	private final UserService userService;
 	private final HouseholdRepository householdRepo;
 	private final HouseholdMemberRepository householdMemberRepo;
+	private final HouseholdSecurity householdSecurity;
 	
 	@Transactional
 	public CreateExpenseResponseDTO createExpense(Long householdId,CreateExpenseRequestDTO createRequest) {
@@ -57,7 +61,6 @@ public class ExpenseService {
 				.method(createRequest.getMethod())
 				.status(status)
 				.household(household)
-				.reviewed_by(member)
 				.reviewed_by(admin)
 				.date(createRequest.getDate())
 				.currency(createRequest.getCurrency())
@@ -75,7 +78,6 @@ public class ExpenseService {
 			expense.getSplitDetails().add(splitDetails); 
 		}
 		ExpenseEntity savedExpense=expenseRepo.save(expense);
-		
 		return toDTO(savedExpense);
 	}
 	
@@ -134,5 +136,62 @@ public class ExpenseService {
 	            .currency(expense.getCurrency())
 				.build()
 				;
+	}
+	
+	
+	
+	//helper
+	private void checkAdmin(Long householdId) {
+		if(!householdSecurity.isAdmin(householdId)) {
+			throw new AccessDeniedException("Only admin can perform this action");
+		}
+	}
+	
+	public ExpenseEntity findExpense(Long householdId,Long expenseId) {
+		Household household=householdRepo.findById(householdId)
+				.orElseThrow(()-> new RuntimeException("No household found"));
+		
+		return expenseRepo.findByIdAndHousehold(expenseId,household)
+				.orElseThrow(()-> new RuntimeException("No expense found"));
+	}
+	
+	//accept logic
+	@Transactional
+	public CreateExpenseResponseDTO acceptExpense(Long householdId, Long expenseId) {
+		checkAdmin(householdId);
+		ExpenseEntity expense=findExpense(householdId,expenseId);
+		
+		if(expense.getStatus()!=ExpenseStatus.PENDING) {
+			 throw new RuntimeException("Only pending expense can be approved");
+		}
+		
+		expense.setStatus(ExpenseStatus.APPROVED);
+		expenseRepo.save(expense);
+		
+		return toDTO(expense);
+	}
+	
+	//rollback
+	@Transactional
+	public CreateExpenseResponseDTO rollback(Long householdId, Long expenseId) {
+		checkAdmin(householdId);
+		ExpenseEntity expense=findExpense(householdId,expenseId);
+		
+		if(expense.getStatus()!=ExpenseStatus.APPROVED) {
+			throw new RuntimeException("Only Approved expense can be rollback");
+		}
+		
+		expense.setStatus(ExpenseStatus.PENDING);
+		expenseRepo.save(expense);
+		
+		return toDTO(expense);
+	}
+	
+	//reject
+	@Transactional
+	public void rejectExpense(Long householdId, Long expenseId) {
+		checkAdmin(householdId);
+		ExpenseEntity expense=findExpense(householdId,expenseId);
+		expenseRepo.delete(expense);
 	}
 }
