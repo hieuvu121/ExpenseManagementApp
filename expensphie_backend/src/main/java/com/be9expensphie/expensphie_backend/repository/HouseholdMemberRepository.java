@@ -29,6 +29,10 @@ public interface HouseholdMemberRepository extends JpaRepository<HouseholdMember
 		
 		//find admin of a group
 		Optional<HouseholdMember> findByHouseholdAndRole(Household household, HouseholdRole role);
+		
+		Optional<HouseholdMember> findByUserAndHouseholdId(
+				UserEntity user, Long householdId );
+
 
 		
 }
