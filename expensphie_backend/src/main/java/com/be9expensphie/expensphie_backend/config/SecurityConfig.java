@@ -35,7 +35,8 @@ public class SecurityConfig {
                              "/activate", "/login", "/forgot-password/**")
                             .permitAll()
                             .anyRequest().authenticated())
-                            .httpBasic(Customizer.withDefaults())
+                            .httpBasic(httpBasic -> httpBasic.disable())
+                            .formLogin(form -> form.disable()) 
                             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                             .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
