@@ -77,7 +77,9 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Load households on mount and when authentication changes
   useEffect(() => {
-    refreshHouseholds();
+    if (isAuthenticated()) {
+      refreshHouseholds();
+    }
   }, []);
 
   // Save active household to localStorage
