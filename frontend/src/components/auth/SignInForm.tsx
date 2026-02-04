@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
@@ -9,6 +9,61 @@ import Button from "../ui/button/Button";
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+
+  const apiBaseUrl =
+    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080/app/v1";
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setErrorMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        token?: string;
+        user?: unknown;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Sign in failed. Please try again.");
+      }
+
+      if (!data?.token) {
+        throw new Error("Authentication token was not returned.");
+      }
+
+      localStorage.setItem("authToken", data.token);
+      if (data.user) {
+        localStorage.setItem("authUser", JSON.stringify(data.user));
+      }
+
+      navigate("/TailAdmin/");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Unable to sign in."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1">
       <div className="w-full max-w-md pt-10 mx-auto">
@@ -83,13 +138,20 @@ export default function SignInForm() {
                 </span>
               </div>
             </div>
-            <form>
+            <form onSubmit={handleSubmit}>
               <div className="space-y-6">
                 <div>
                   <Label>
                     Email <span className="text-error-500">*</span>{" "}
                   </Label>
-                  <Input placeholder="info@gmail.com" />
+                  <Input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="info@gmail.com"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
                 </div>
                 <div>
                   <Label>
@@ -99,6 +161,8 @@ export default function SignInForm() {
                     <Input
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -127,10 +191,13 @@ export default function SignInForm() {
                   </Link>
                 </div>
                 <div>
-                  <Button className="w-full" size="sm">
-                    Sign in
+                  <Button className="w-full" size="sm" disabled={isSubmitting}>
+                    {isSubmitting ? "Signing in..." : "Sign in"}
                   </Button>
                 </div>
+                {errorMessage && (
+                  <p className="text-sm text-error-500">{errorMessage}</p>
+                )}
               </div>
             </form>
 
