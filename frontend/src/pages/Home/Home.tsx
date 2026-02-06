@@ -5,11 +5,13 @@ import StatisticsChart from "../../components/displayBox/StatisticsChart";
 import RecentExpense from "../../components/displayBox/RecentExpense";
 import PageMeta from "../../components/common/PageMeta";
 import JoinGroupModal from "../../components/household/JoinGroupModal";
+import CreateGroupModal from "../../components/household/CreateGroupModal";
 import { useHousehold } from "../../context/HouseholdContext";
 
 
 export default function Home() {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { households } = useHousehold();
 
   return (
@@ -19,7 +21,7 @@ export default function Home() {
         description="This is React.js Ecommerce Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
       />
       
-      {/* Header Section with Join Group Button */}
+      {/* Header Section with Join Group Button and Create Group Button */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
@@ -31,12 +33,20 @@ export default function Home() {
             </p>
           )}
         </div>
-        <button
-          onClick={() => setIsJoinModalOpen(true)}
-          className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Join Group
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Create Group
+          </button>
+          <button
+            onClick={() => setIsJoinModalOpen(true)}
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Join Group
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-12 gap-4 md:gap-6">
@@ -59,6 +69,12 @@ export default function Home() {
       <JoinGroupModal
         isOpen={isJoinModalOpen}
         onClose={() => setIsJoinModalOpen(false)}
+      />
+
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
       />
     </>
   );
