@@ -49,7 +49,7 @@ export default function SignUpForm() {
       setEmail("");
       setPassword("");
 
-      setTimeout(() => navigate("/TailAdmin/signin"), 1000);
+      setTimeout(() => navigate("/TailAdmin/signin"), 5000);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Unable to sign up."
