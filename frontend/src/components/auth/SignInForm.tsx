@@ -4,6 +4,7 @@ import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
+import { saveAuthToken } from "../../services/coreApi";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -47,7 +48,8 @@ export default function SignInForm() {
         throw new Error("Authentication token was not returned.");
       }
 
-      localStorage.setItem("authToken", data.token);
+      // Save authentication token and user data to localStorage
+      saveAuthToken(data.token);
       if (data.user) {
         localStorage.setItem("authUser", JSON.stringify(data.user));
       }
