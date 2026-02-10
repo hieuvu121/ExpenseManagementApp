@@ -125,13 +125,28 @@ public class SettlementService {
     }
 
     public SettlementDTO toDTO(SettlementEntity settlementEntity) {
+        String toMemberName = null;
+        String expenseCategory = null;
+
+        if (settlementEntity.getToMember() != null
+                && settlementEntity.getToMember().getUser() != null) {
+            toMemberName = settlementEntity.getToMember().getUser().getFullName();
+        }
+
+        if (settlementEntity.getExpenseSplitDetails() != null
+                && settlementEntity.getExpenseSplitDetails().getExpense() != null) {
+            expenseCategory = settlementEntity.getExpenseSplitDetails().getExpense().getCategory();
+        }
+
         return SettlementDTO.builder()
                 .id(settlementEntity.getId())
                 .amount(settlementEntity.getAmount())
                 .fromMemberId(settlementEntity.getFromMember().getId())
                 .toMemberId(settlementEntity.getToMember().getId())
+                .toMemberName(toMemberName)
                 .currency(settlementEntity.getCurrency())
                 .expense_split_details_id(settlementEntity.getExpenseSplitDetails().getId())
+                .expenseCategory(expenseCategory)
                 .date(settlementEntity.getDate() != null ? settlementEntity.getDate().toString() : null)
                 .status(settlementEntity.getStatus())
                 .build();
