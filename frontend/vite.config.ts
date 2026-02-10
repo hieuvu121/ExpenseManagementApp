@@ -16,17 +16,4 @@ export default defineConfig({
       },
     }),
   ],
-  // Development server proxy to avoid CORS during local development ⚠️
-  server: {
-    proxy: {
-      // Proxy any request starting with /app to the backend at localhost:8080
-      // This ensures the browser talks to the Vite dev server (same origin)
-      // and the dev server forwards the request to the backend, avoiding CORS.
-      '/app': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
-  },
 });
