@@ -13,6 +13,7 @@ public class HouseholdDTO {
     private Long id;        
     private String name;     
     private String code;     
-    private String role;      
+    private String role;
+    private Long memberId;
 }
 

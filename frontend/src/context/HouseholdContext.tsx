@@ -6,6 +6,7 @@ interface Household {
   name: string;
   code: string;
   role: string;
+  memberId?: number;
 }
 
 interface HouseholdContextType {
@@ -69,10 +70,8 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
       return [...prev, household];
     });
     
-    // Set as active if no active household
-    if (!activeHousehold) {
-      setActiveHousehold(household);
-    }
+    // Set the newly joined household as active
+    setActiveHousehold(household);
   };
 
   // Load households on mount and when authentication changes
@@ -85,13 +84,21 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Save active household to localStorage
   useEffect(() => {
     if (activeHousehold) {
-      localStorage.setItem("activeHouseholdId", activeHousehold.id.toString());
+      localStorage.setItem("householdId", activeHousehold.id.toString());
+      console.log("✅ Saved householdId to localStorage:", activeHousehold.id);
+      
+      if (activeHousehold.memberId) {
+        localStorage.setItem("memberId", activeHousehold.memberId.toString());
+        console.log("✅ Saved memberId to localStorage:", activeHousehold.memberId);
+      } else {
+        console.warn("⚠️ No memberId in activeHousehold:", activeHousehold);
+      }
     }
   }, [activeHousehold]);
 
   // Load active household from localStorage on mount
   useEffect(() => {
-    const savedHouseholdId = localStorage.getItem("activeHouseholdId");
+    const savedHouseholdId = localStorage.getItem("householdId");
     if (savedHouseholdId && households.length > 0) {
       const household = households.find((h) => h.id.toString() === savedHouseholdId);
       if (household) {
