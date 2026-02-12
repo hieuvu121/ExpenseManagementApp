@@ -42,6 +42,21 @@ export const settlementAPI = {
     );
   },
 
+  getLastThreeMonthsStats: async (memberId: number, householdId: number) => {
+    const response = await apiRequest(
+      `/settlements/pending/${memberId}/${householdId}/last-three-months`
+    );
+    const data = (await response.json()) as {
+      data?: SettlementStats;
+    };
+    return (
+      data.data ?? {
+        pendingSettlements: [],
+        totalPendingAmount: 0,
+      }
+    );
+  },
+
   toggleSettlementStatus: async (settlementId: number, memberId: number) => {
     const response = await apiRequest(
       `/settlements/${settlementId}/toggle/${memberId}`,

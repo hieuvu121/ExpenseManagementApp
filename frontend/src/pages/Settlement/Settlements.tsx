@@ -31,12 +31,19 @@ const statusBadgeColor = (status: string) => {
   return "info";
 };
 
+type PendingPeriod = "current" | "lastThree";
+
 export default function Settlements() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
-  const [stats, setStats] = useState<SettlementStats>({
+  const [currentStats, setCurrentStats] = useState<SettlementStats>({
     pendingSettlements: [],
     totalPendingAmount: 0,
   });
+  const [lastThreeStats, setLastThreeStats] = useState<SettlementStats>({
+    pendingSettlements: [],
+    totalPendingAmount: 0,
+  });
+  const [pendingPeriod, setPendingPeriod] = useState<PendingPeriod>("current");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState<number | null>(null);
@@ -55,12 +62,14 @@ export default function Settlements() {
     setError(null);
 
     try {
-      const [settlementList, statsData] = await Promise.all([
+      const [settlementList, statsData, lastThreeStatsData] = await Promise.all([
         settlementAPI.getSettlements(memberId, householdId),
         settlementAPI.getCurrentMonthStats(memberId, householdId),
+        settlementAPI.getLastThreeMonthsStats(memberId, householdId),
       ]);
       setSettlements(settlementList);
-      setStats(statsData);
+      setCurrentStats(statsData);
+      setLastThreeStats(lastThreeStatsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load settlements.");
     } finally {
@@ -91,6 +100,9 @@ export default function Settlements() {
     }
   };
 
+  const selectedStats =
+    pendingPeriod === "current" ? currentStats : lastThreeStats;
+
   return (
     <>
       <PageMeta
@@ -108,33 +120,58 @@ export default function Settlements() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Current Month Pending
+            Pending Summary
           </h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Settlements awaiting completion this month.
+            Totals for the selected period.
           </p>
           <div className="mt-6 flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total pending</p>
               <p className="text-2xl font-semibold text-gray-800 dark:text-white/90">
-                {formatAmount(stats.totalPendingAmount, stats.pendingSettlements[0]?.currency)}
+                {formatAmount(
+                  selectedStats.totalPendingAmount,
+                  selectedStats.pendingSettlements[0]?.currency
+                )}
               </p>
             </div>
             <Badge color="warning">
-              {stats.pendingSettlements.length} pending
+              {selectedStats.pendingSettlements.length} pending
             </Badge>
           </div>
         </div>
 
         <div className="xl:col-span-2 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
                 Pending Settlements
               </h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Current month pending list
+                Filter by time range
               </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-1 text-sm dark:border-gray-800 dark:bg-gray-900/40">
+              <button
+                className={`rounded-md px-3 py-1.5 font-medium transition ${pendingPeriod === "current"
+                    ? "bg-brand-500 text-white"
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                onClick={() => setPendingPeriod("current")}
+                type="button"
+              >
+                Current month
+              </button>
+              <button
+                className={`rounded-md px-3 py-1.5 font-medium transition ${pendingPeriod === "lastThree"
+                    ? "bg-brand-500 text-white"
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                onClick={() => setPendingPeriod("lastThree")}
+                type="button"
+              >
+                Last 3 months
+              </button>
             </div>
             {isLoading && (
               <span className="text-sm text-gray-400">Loading...</span>
@@ -142,12 +179,12 @@ export default function Settlements() {
           </div>
 
           <div className="mt-5 space-y-3">
-            {stats.pendingSettlements.length === 0 && !isLoading ? (
+            {selectedStats.pendingSettlements.length === 0 && !isLoading ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 No pending settlements found.
               </p>
             ) : (
-              stats.pendingSettlements.map((settlement) => (
+              selectedStats.pendingSettlements.map((settlement) => (
                 <div
                   key={settlement.id}
                   className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40 sm:flex-row sm:items-center sm:justify-between"

@@ -133,4 +133,30 @@ public class SettlementController {
             );
         }
     }
+
+    @GetMapping("/pending/{memberId}/{householdId}/last-three-months")
+    public ResponseEntity<Map<String, Object>> getLastThreeMonthsPendingSettlements(
+            @PathVariable Long memberId, @PathVariable Long householdId) {
+        try {
+            Map<String, Object> result = settlementService.getLastThreeMonthsSettlementStatisticsForMember(memberId, householdId);
+            return ResponseEntity.ok(Map.of(
+                    "error", false,
+                    "data", result
+            ));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    Map.of(
+                        "error", true,
+                        "message", e.getMessage()
+                    )
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    Map.of(
+                        "error", true,
+                        "message", e.getMessage()
+                    )
+            );
+        }
+    }
 }

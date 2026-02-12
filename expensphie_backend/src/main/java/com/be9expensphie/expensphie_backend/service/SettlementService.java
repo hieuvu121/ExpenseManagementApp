@@ -124,6 +124,33 @@ public class SettlementService {
         }
     }
 
+    @SuppressWarnings("null")
+    public Map<String, Object> getLastThreeMonthsSettlementStatisticsForMember(Long memberId, Long householdId) {
+        try {
+            UserEntity user = userService.getCurrentUser();
+            HouseholdMember householdMember = householdMemberRepository
+                    .findByUserAndHousehold(user, householdRepository.findById(householdId)
+                            .orElseThrow(() -> new NoSuchElementException("Household not found")))
+                    .orElseThrow(() -> new NoSuchElementException("Household member not found"));
+            if (!householdMember.getId().equals(memberId)) {
+                throw new IllegalArgumentException("Unauthorized access to settlement statistics");
+            }
+            if (!householdId.equals(householdMember.getHousehold().getId())) {
+                throw new IllegalArgumentException("Household member does not belong to the specified household");
+            }
+            List<SettlementEntity> lastThreeMonthsPendingSettlements = settlementRepository.findLastThreeMonthsPendingSettlementsForMember(householdMember);
+            BigDecimal totalPendingAmount = settlementRepository.findLastThreeMonthsTotalPendingAmountForMember(householdMember);
+            return Map.of(
+                    "pendingSettlements", lastThreeMonthsPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
+                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO
+            );
+        } catch (NoSuchElementException e) {
+            throw new NoSuchElementException("Failed to get settlement statistics: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Failed to get settlement statistics: " + e.getMessage());
+        }
+    }
+
     public SettlementDTO toDTO(SettlementEntity settlementEntity) {
         String toMemberName = null;
         String expenseCategory = null;
