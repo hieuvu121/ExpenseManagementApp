@@ -16,8 +16,10 @@ import BasicTables from "./pages/ExpenseList/ExpenseList";
 import FormElements from "./pages/Forms/FormElements";
 import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
+import MinimalLayout from "./layout/MinimalLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Home/Home";
+import NoGroupsOnboarding from "./pages/NoGroupsOnboarding";
 
 export default function App() {
   return (
@@ -25,6 +27,11 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <Routes>
+          {/* Onboarding - Minimal Layout (No Sidebar) */}
+          <Route path="/TailAdmin/onboarding" element={<MinimalLayout />}>
+            <Route index element={<NoGroupsOnboarding />} />
+          </Route>
+
           {/* Homepage Layout */}
           <Route path="/TailAdmin/" element={<AppLayout />}>
             <Route index element={<Home />} />

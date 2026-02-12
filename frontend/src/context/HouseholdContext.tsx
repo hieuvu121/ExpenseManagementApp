@@ -17,6 +17,7 @@ interface HouseholdContextType {
   refreshHouseholds: () => Promise<void>;
   setActiveHousehold: (household: Household | null) => void;
   addHousehold: (household: Household) => void;
+  clearHouseholds: () => void;
 }
 
 const HouseholdContext = createContext<HouseholdContextType | undefined>(undefined);
@@ -24,21 +25,29 @@ const HouseholdContext = createContext<HouseholdContextType | undefined>(undefin
 export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [households, setHouseholds] = useState<Household[]>([]);
   const [activeHousehold, setActiveHousehold] = useState<Household | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+
+  useEffect(() => {
+  refreshHouseholds().finally(() => setHasLoadedOnce(true));
+}, []);
+
 
   /**
    * Fetch households from backend
    */
   const refreshHouseholds = async () => {
+    setIsLoading(true);
+    setError(null);
+
     if (!isAuthenticated()) {
       setHouseholds([]);
       setActiveHousehold(null);
+      setIsLoading(false);
       return;
     }
-
-    setIsLoading(true);
-    setError(null);
 
     try {
       const data = await householdAPI.getMyHouseholds();
@@ -74,18 +83,33 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
     setActiveHousehold(household);
   };
 
+  /**
+   * Clear households and active selection (used on login to force onboarding)
+   */
+  const clearHouseholds = () => {
+    setHouseholds([]);
+    setActiveHousehold(null);
+    localStorage.removeItem("activeHouseholdId");
+    localStorage.removeItem("memberId");
+  };
+
   // Load households on mount and when authentication changes
   useEffect(() => {
+    console.log("🔍 HouseholdProvider mounting, checking authentication...");
     if (isAuthenticated()) {
+      console.log("✅ User is authenticated, fetching households...");
       refreshHouseholds();
+    } else {
+      console.log("❌ User is not authenticated");
+      setIsLoading(false);
     }
   }, []);
 
   // Save active household to localStorage
   useEffect(() => {
     if (activeHousehold) {
-      localStorage.setItem("householdId", activeHousehold.id.toString());
-      console.log("✅ Saved householdId to localStorage:", activeHousehold.id);
+      localStorage.setItem("activeHouseholdId", activeHousehold.id.toString());
+      console.log("✅ Saved activeHouseholdId to localStorage:", activeHousehold.id);
       
       if (activeHousehold.memberId) {
         localStorage.setItem("memberId", activeHousehold.memberId.toString());
@@ -98,7 +122,7 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Load active household from localStorage on mount
   useEffect(() => {
-    const savedHouseholdId = localStorage.getItem("householdId");
+    const savedHouseholdId = localStorage.getItem("activeHouseholdId");
     if (savedHouseholdId && households.length > 0) {
       const household = households.find((h) => h.id.toString() === savedHouseholdId);
       if (household) {
@@ -117,6 +141,7 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
         refreshHouseholds,
         setActiveHousehold,
         addHousehold,
+        clearHouseholds,
       }}
     >
       {children}

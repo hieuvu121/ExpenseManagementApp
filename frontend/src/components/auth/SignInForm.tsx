@@ -5,6 +5,8 @@ import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
 import { saveAuthToken } from "../../services/coreApi";
+import { useHousehold } from "../../context/HouseholdContext";
+import { householdAPI } from "../../services/householdApi";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -13,6 +15,7 @@ export default function SignInForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { clearHouseholds, refreshHouseholds } = useHousehold();
 
   const apiBaseUrl =
     import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080/app/v1";
@@ -54,7 +57,29 @@ export default function SignInForm() {
         localStorage.setItem("authUser", JSON.stringify(data.user));
       }
 
-      navigate("/TailAdmin/");
+      // Determine where to send the user based on existing households
+      try {
+        const myHouseholds = await householdAPI.getMyHouseholds();
+        console.log("SignIn: myHouseholds:", myHouseholds);
+        // If user has no households, clear any stale state and send to onboarding
+        if (!myHouseholds || myHouseholds.length === 0) {
+          try { clearHouseholds(); } catch (e) { /* ignore */ }
+          navigate("/TailAdmin/onboarding");
+        } else {
+          // Populate household context and go to dashboard
+          try {
+            // refreshHouseholds will update context
+            await refreshHouseholds();
+          } catch (e) {
+            console.warn("Failed to refresh households after login", e);
+          }
+          navigate("/TailAdmin/");
+        }
+      } catch (err) {
+        // Fallback to onboarding on error
+        try { clearHouseholds(); } catch (e) { /* ignore */ }
+        navigate("/TailAdmin/onboarding");
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Unable to sign in."
