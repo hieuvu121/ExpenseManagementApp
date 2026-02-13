@@ -14,12 +14,26 @@ interface CreateExpenseRequestDTO {
   splits: SplitRequestDTO[];
 }
 
+interface MemberDTO {
+  memberId: number;
+  fullName: string;
+  role: string;
+}
+
 export const householdAPI = {
   /**
    * Get all households for current user
    */
   getMyHouseholds: async () => {
     const response = await apiRequest("/households/my");
+    return response.json();
+  },
+
+  /**
+   * Get all household members for a household
+   */
+  getHouseholdMembers: async (householdId: number | string): Promise<MemberDTO[]> => {
+    const response = await apiRequest(`/member/${householdId}/members`);
     return response.json();
   },
 

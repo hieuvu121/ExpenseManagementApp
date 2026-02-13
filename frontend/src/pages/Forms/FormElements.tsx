@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ComponentCard from "../../components/common/ComponentCard";
@@ -16,17 +16,43 @@ import { householdAPI } from "../../services/householdApi";
 
 type SplitMethod = "EQUAL" | "AMOUNT";
 
+interface Member {
+  id: number;
+  name: string;
+}
+
 export default function AddExpense() {
   const { activeHousehold } = useHousehold();
-  
-  const members = useMemo(
-    () => [
-      { id: 1, name: "Dung" },
-      { id: 2, name: "Hieu" },
-      { id: 3, name: "Phong" },
-    ],
-    []
-  );
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
+  // Fetch household members from API
+  useEffect(() => {
+    if (!activeHousehold?.id) {
+      setMembers([]);
+      return;
+    }
+
+    const fetchMembers = async () => {
+      setLoadingMembers(true);
+      try {
+        const memberData = await householdAPI.getHouseholdMembers(activeHousehold.id);
+        // Transform MemberDTO to Member format
+        const transformedMembers: Member[] = memberData.map((m) => ({
+          id: m.memberId,
+          name: m.fullName,
+        }));
+        setMembers(transformedMembers);
+      } catch (error) {
+        console.error("Failed to fetch household members:", error);
+        setMembers([]);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    fetchMembers();
+  }, [activeHousehold?.id]);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -54,11 +80,6 @@ export default function AddExpense() {
   );
 
 
-  const memberSelectOptions = useMemo(
-    () => members.map((m) => ({ value: String(m.id), label: m.name })),
-    [members]
-  );
-
   const memberMultiOptions = useMemo(
     () =>
       members.map((m) => ({
@@ -75,10 +96,7 @@ export default function AddExpense() {
   const [currency, setCurrency] = useState("AUD");
   const [date, setDate] = useState(today);
   const [category, setCategory] = useState("FOOD");
-  const [paidBy, setPaidBy] = useState<string>(String(members[0]?.id ?? 1));
-  const [participants, setParticipants] = useState<string[]>(
-    members.map((m) => String(m.id))
-  );
+  const [participants, setParticipants] = useState<string[]>([]);
   const [splitMethod, setSplitMethod] = useState<SplitMethod>("EQUAL");
   const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -127,17 +145,32 @@ export default function AddExpense() {
     return [];
   };
 
+  // Calculate total for AMOUNT mode
+  const calculateTotalSplitAmount = (): number => {
+    const participantIds = selectedParticipants.map((p) => String(p.id));
+    return participantIds.reduce((total, id) => {
+      return total + (splitValues[id] || 0);
+    }, 0);
+  };
+
   // Basic validation
   const amountNumber = Number(amount);
   const isAmountValid = Number.isFinite(amountNumber) && amountNumber > 0;
   const isTitleValid = title.trim().length > 0;
   const isParticipantsValid = participants.length > 0;
 
+  // Validate AMOUNT mode - total must equal expense amount
+  const totalSplitAmount = calculateTotalSplitAmount();
+  const isSplitAmountValid =
+    splitMethod === "EQUAL" ||
+    (splitMethod === "AMOUNT" && Math.abs(totalSplitAmount - amountNumber) < 0.01);
+
   const canSubmit =
     isTitleValid &&
     isAmountValid &&
     isParticipantsValid &&
     activeHousehold &&
+    isSplitAmountValid &&
     !isLoading;
 
   const handleSubmit = async () => {
@@ -178,8 +211,7 @@ export default function AddExpense() {
       setCurrency("AUD");
       setDate(today);
       setCategory("FOOD");
-      setPaidBy(String(members[0]?.id ?? 1));
-      setParticipants(members.map((m) => String(m.id)));
+      setParticipants([]);
       setSplitMethod("EQUAL");
       setSplitValues({});
       setNote("");
@@ -277,18 +309,6 @@ export default function AddExpense() {
               
               </div>
 
-
-              {/* Paid by */}
-              <div>
-                <Label>Paid by</Label>
-                <Select
-                  options={memberSelectOptions}
-                  placeholder="Select payer"
-                  onChange={(v) => setPaidBy(v)}
-                  className="dark:bg-dark-900"
-                />
-              </div>
-
               {/* Participants */}
               <div>
                 <MultiSelect
@@ -331,7 +351,7 @@ export default function AddExpense() {
               {splitMethod === "AMOUNT" && (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Enter amount for each participant.
+                    Enter amount for each participant. Total must equal {amountNumber.toFixed(2)} {currency}.
                   </p>
 
                   <div className="space-y-3">
@@ -361,6 +381,30 @@ export default function AddExpense() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Total display */}
+                  <div className="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-gray-900/50">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Total Allocated:
+                      </p>
+                      <p
+                        className={`text-sm font-semibold ${
+                          Math.abs(totalSplitAmount - amountNumber) < 0.01
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {totalSplitAmount.toFixed(2)} / {amountNumber.toFixed(2)} {currency}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!isSplitAmountValid && (
+                    <p className="mt-2 text-sm text-red-500">
+                      Total allocated amount must equal {amountNumber.toFixed(2)} {currency}.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -399,8 +443,7 @@ export default function AddExpense() {
                   setCurrency("AUD");
                   setDate(today);
                   setCategory("FOOD");
-                  setPaidBy(String(members[0]?.id ?? 1));
-                     setParticipants(members.map((m) => String(m.id)));
+                  setParticipants([]);
                   setSplitMethod("EQUAL");
                   setSplitValues({});
                   setNote("");
