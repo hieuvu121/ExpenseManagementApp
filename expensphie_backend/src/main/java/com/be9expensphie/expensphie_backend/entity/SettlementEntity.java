@@ -24,13 +24,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "settlements",
-    uniqueConstraints = {
-        @UniqueConstraint(
-            columnNames = {"from_member_id", "to_member_id", "expense_split_details_id"}
-        )
-    }
-)
+@Table(name = "settlements", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "from_member_id", "to_member_id", "expense_split_details_id" })
+})
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -57,6 +53,12 @@ public class SettlementEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SettlementStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private SettlementStatus requestedStatus;
+
+    @Enumerated(EnumType.STRING)
+    private SettlementStatus previousStatus;
 
     @PrePersist
     public void prePersist() {

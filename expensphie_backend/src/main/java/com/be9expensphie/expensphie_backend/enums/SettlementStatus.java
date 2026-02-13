@@ -2,5 +2,6 @@ package com.be9expensphie.expensphie_backend.enums;
 
 public enum SettlementStatus {
 	PENDING,
-	COMPLETED
+	COMPLETED,
+	WAITING_FOR_APPROVAL
 }

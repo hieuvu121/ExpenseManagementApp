@@ -33,22 +33,17 @@ public class SettlementController {
         try {
             return ResponseEntity.ok(Map.of(
                     "error", false,
-                    "settlements", settlementService.getSettlementsForCurrentUser(memberId, householdId)
-            ));
+                    "settlements", settlementService.getSettlementsForCurrentUser(memberId, householdId)));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         }
     }
 
@@ -62,23 +57,17 @@ public class SettlementController {
                             request.getExpenseId(),
                             request.getExpenseSplitDetailsId(),
                             request.getFromMemberId(),
-                            request.getToMemberId()
-                    )
-            ));
+                            request.getToMemberId())));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         }
     }
 
@@ -89,22 +78,59 @@ public class SettlementController {
             SettlementDTO updatedSettlement = settlementService.toggleSettlementStatus(settlementId, memberId);
             return ResponseEntity.ok(Map.of(
                     "error", false,
-                    "settlement", updatedSettlement
-            ));
+                    "settlement", updatedSettlement));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{settlementId}/approve/{memberId}")
+    public ResponseEntity<?> approveSettlement(
+            @PathVariable Long settlementId, @PathVariable Long memberId) {
+        try {
+            SettlementDTO updatedSettlement = settlementService.approveSettlement(settlementId, memberId);
+            return ResponseEntity.ok(Map.of(
+                    "error", false,
+                    "settlement", updatedSettlement));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{settlementId}/reject/{memberId}")
+    public ResponseEntity<?> rejectSettlement(
+            @PathVariable Long settlementId, @PathVariable Long memberId) {
+        try {
+            SettlementDTO updatedSettlement = settlementService.rejectSettlement(settlementId, memberId);
+            return ResponseEntity.ok(Map.of(
+                    "error", false,
+                    "settlement", updatedSettlement));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
         }
     }
 
@@ -112,25 +138,21 @@ public class SettlementController {
     public ResponseEntity<Map<String, Object>> getCurrentMonthPendingSettlements(
             @PathVariable Long memberId, @PathVariable Long householdId) {
         try {
-            Map<String, Object> result = settlementService.getCurrentMonthSettlementStatisticsForMember(memberId, householdId);
+            Map<String, Object> result = settlementService.getCurrentMonthSettlementStatisticsForMember(memberId,
+                    householdId);
             return ResponseEntity.ok(Map.of(
                     "error", false,
-                    "data", result
-            ));
+                    "data", result));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         }
     }
 
@@ -138,25 +160,21 @@ public class SettlementController {
     public ResponseEntity<Map<String, Object>> getLastThreeMonthsPendingSettlements(
             @PathVariable Long memberId, @PathVariable Long householdId) {
         try {
-            Map<String, Object> result = settlementService.getLastThreeMonthsSettlementStatisticsForMember(memberId, householdId);
+            Map<String, Object> result = settlementService.getLastThreeMonthsSettlementStatisticsForMember(memberId,
+                    householdId);
             return ResponseEntity.ok(Map.of(
                     "error", false,
-                    "data", result
-            ));
+                    "data", result));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         }
     }
 }
