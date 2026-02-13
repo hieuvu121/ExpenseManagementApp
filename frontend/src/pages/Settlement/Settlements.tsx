@@ -14,6 +14,19 @@ const getStoredNumber = (key: string): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const isUserAdmin = (): boolean => {
+  const authUser = localStorage.getItem("authUser");
+  if (!authUser) {
+    return false;
+  }
+  try {
+    const user = JSON.parse(authUser);
+    return user.role === "ROLE_ADMIN";
+  } catch {
+    return false;
+  }
+};
+
 const formatAmount = (amount: number | string, currency?: string | null) => {
   const currencyLabel = currency ? `${currency} ` : "";
   return `${currencyLabel}${amount}`;
@@ -27,6 +40,9 @@ const statusBadgeColor = (status: string) => {
   }
   if (status === "PENDING") {
     return "warning";
+  }
+  if (status === "WAITING_FOR_APPROVAL") {
+    return "info";
   }
   return "info";
 };
@@ -47,9 +63,12 @@ export default function Settlements() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState<number | null>(null);
+  const [isApproving, setIsApproving] = useState<number | null>(null);
+  const [isRejecting, setIsRejecting] = useState<number | null>(null);
 
   const memberId = useMemo(() => getStoredNumber("memberId"), []);
   const householdId = useMemo(() => getStoredNumber("activeHouseholdId"), []);
+  const isAdmin = useMemo(() => isUserAdmin(), []);
 
   const loadSettlements = useCallback(async () => {
     if (!memberId || !householdId) {
@@ -100,8 +119,51 @@ export default function Settlements() {
     }
   };
 
+  const handleApprove = async (settlementId: number) => {
+    if (!memberId) {
+      setError("Missing member information. Please sign in again.");
+      return;
+    }
+
+    setIsApproving(settlementId);
+    setError(null);
+
+    try {
+      await settlementAPI.approveSettlement(settlementId, memberId);
+      await loadSettlements();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve settlement.");
+    } finally {
+      setIsApproving(null);
+    }
+  };
+
+  const handleReject = async (settlementId: number) => {
+    if (!memberId) {
+      setError("Missing member information. Please sign in again.");
+      return;
+    }
+
+    setIsRejecting(settlementId);
+    setError(null);
+
+    try {
+      await settlementAPI.rejectSettlement(settlementId, memberId);
+      await loadSettlements();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reject settlement.");
+    } finally {
+      setIsRejecting(null);
+    }
+  };
+
   const selectedStats =
     pendingPeriod === "current" ? currentStats : lastThreeStats;
+
+  const pendingApprovalSettlements = useMemo(
+    () => settlements.filter((s) => s.status === "WAITING_FOR_APPROVAL"),
+    [settlements]
+  );
 
   return (
     <>
@@ -114,6 +176,68 @@ export default function Settlements() {
       {error && (
         <div className="mb-6 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400">
           {error}
+        </div>
+      )}
+
+      {isAdmin && pendingApprovalSettlements.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-500/40 dark:bg-amber-500/10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-300">
+                Pending Approvals
+              </h3>
+              <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+                Review and approve or reject settlement status change requests.
+              </p>
+            </div>
+            <Badge color="warning">
+              {pendingApprovalSettlements.length} awaiting
+            </Badge>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {pendingApprovalSettlements.map((settlement) => (
+              <div
+                key={settlement.id}
+                className="flex flex-col gap-3 rounded-xl border border-amber-100 bg-white p-4 dark:border-amber-800 dark:bg-gray-900/60 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                    Settlement #{settlement.id}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {formatAmount(settlement.amount, settlement.currency)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    To: {formatOptional(settlement.toMemberName)} • Category: {formatOptional(settlement.expenseCategory)}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    Member requested status change
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => handleApprove(settlement.id)}
+                    disabled={isApproving === settlement.id || isRejecting === settlement.id}
+                    className="bg-success-500 hover:bg-success-600 text-white"
+                  >
+                    {isApproving === settlement.id ? "Approving..." : "Approve"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleReject(settlement.id)}
+                    disabled={isApproving === settlement.id || isRejecting === settlement.id}
+                    className="border-error-500 text-error-600 hover:bg-error-50 dark:border-error-500 dark:text-error-400 dark:hover:bg-error-500/10"
+                  >
+                    {isRejecting === settlement.id ? "Rejecting..." : "Reject"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -154,8 +278,8 @@ export default function Settlements() {
             <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-1 text-sm dark:border-gray-800 dark:bg-gray-900/40">
               <button
                 className={`rounded-md px-3 py-1.5 font-medium transition ${pendingPeriod === "current"
-                    ? "bg-brand-500 text-white"
-                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  ? "bg-brand-500 text-white"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                   }`}
                 onClick={() => setPendingPeriod("current")}
                 type="button"
@@ -164,8 +288,8 @@ export default function Settlements() {
               </button>
               <button
                 className={`rounded-md px-3 py-1.5 font-medium transition ${pendingPeriod === "lastThree"
-                    ? "bg-brand-500 text-white"
-                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  ? "bg-brand-500 text-white"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                   }`}
                 onClick={() => setPendingPeriod("lastThree")}
                 type="button"
@@ -208,11 +332,16 @@ export default function Settlements() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleToggleStatus(settlement.id)}
-                      disabled={isToggling === settlement.id}
+                      disabled={
+                        isToggling === settlement.id ||
+                        settlement.status === "WAITING_FOR_APPROVAL"
+                      }
                     >
-                      {settlement.status === "PENDING"
-                        ? "Mark completed"
-                        : "Mark pending"}
+                      {settlement.status === "WAITING_FOR_APPROVAL"
+                        ? "Awaiting approval"
+                        : settlement.status === "PENDING"
+                          ? "Request completion"
+                          : "Request pending"}
                     </Button>
                   </div>
                 </div>
@@ -289,11 +418,16 @@ export default function Settlements() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleToggleStatus(settlement.id)}
-                        disabled={isToggling === settlement.id}
+                        disabled={
+                          isToggling === settlement.id ||
+                          settlement.status === "WAITING_FOR_APPROVAL"
+                        }
                       >
-                        {settlement.status === "PENDING"
-                          ? "Mark completed"
-                          : "Mark pending"}
+                        {settlement.status === "WAITING_FOR_APPROVAL"
+                          ? "Awaiting approval"
+                          : settlement.status === "PENDING"
+                            ? "Request completion"
+                            : "Request pending"}
                       </Button>
                     </td>
                   </tr>
