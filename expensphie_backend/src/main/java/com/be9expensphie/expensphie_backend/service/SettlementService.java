@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import com.be9expensphie.expensphie_backend.entity.HouseholdMember;
 import com.be9expensphie.expensphie_backend.entity.SettlementEntity;
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
-import com.be9expensphie.expensphie_backend.enums.HouseholdRole;
 import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
 import com.be9expensphie.expensphie_backend.entity.UserEntity;
 import com.be9expensphie.expensphie_backend.dto.SettlementDTO.SettlementDTO;
@@ -32,7 +31,6 @@ import lombok.RequiredArgsConstructor;
 public class SettlementService {
     private final SettlementRepository settlementRepository;
     private final UserService userService;
-    private final EmailService emailService;
     private final HouseholdMemberRepository householdMemberRepository;
     private final HouseholdRepository householdRepository;
     private final ExpenseRepository expenseRepository;
@@ -75,103 +73,27 @@ public class SettlementService {
             }
             SettlementEntity settlement = settlementRepository.findById(settlementId)
                     .orElseThrow(() -> new NoSuchElementException("Settlement not found"));
-            if (!settlement.getFromMember().getHousehold().getId()
-                    .equals(householdMember.getHousehold().getId())) {
-                throw new IllegalArgumentException("Household member does not belong to the settlement household");
-            }
-            if (!settlement.getFromMember().getId().equals(memberId)
-                    && householdMember.getRole() != HouseholdRole.ROLE_ADMIN) {
+            if (!settlement.getFromMember().getId().equals(memberId)) {
                 throw new IllegalArgumentException("Unmatch member for toggling settlement status");
             }
-            if (settlement.getStatus() == SettlementStatus.WAITING_FOR_APPROVAL) {
-                throw new IllegalArgumentException("Settlement is awaiting approval");
+
+            switch (settlement.getStatus()) {
+                case PENDING:
+                    settlement.setStatus(SettlementStatus.COMPLETED);
+                    break;
+                case COMPLETED:
+                    settlement.setStatus(SettlementStatus.PENDING);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid settlement status");
             }
-
-            if (householdMember.getRole() == HouseholdRole.ROLE_ADMIN) {
-                switch (settlement.getStatus()) {
-                    case PENDING:
-                        settlement.setStatus(SettlementStatus.COMPLETED);
-                        break;
-                    case COMPLETED:
-                        settlement.setStatus(SettlementStatus.PENDING);
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Invalid settlement status");
-                }
-
-                SettlementEntity newSettlement = settlementRepository.save(settlement);
-                return toDTO(newSettlement);
-            }
-
-            SettlementStatus requestedStatus = settlement.getStatus() == SettlementStatus.PENDING
-                    ? SettlementStatus.COMPLETED
-                    : SettlementStatus.PENDING;
-
-            settlement.setPreviousStatus(settlement.getStatus());
-            settlement.setRequestedStatus(requestedStatus);
-            settlement.setStatus(SettlementStatus.WAITING_FOR_APPROVAL);
 
             SettlementEntity newSettlement = settlementRepository.save(settlement);
-            notifyAdminForApproval(newSettlement, householdMember);
             return toDTO(newSettlement);
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to toggle settlement status: " + e.getMessage());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Failed to toggle settlement status: " + e.getMessage());
-        }
-    }
-
-    public SettlementDTO approveSettlement(Long settlementId, Long adminMemberId) {
-        try {
-            HouseholdMember adminMember = getAdminMember(adminMemberId);
-            SettlementEntity settlement = settlementRepository.findById(settlementId)
-                    .orElseThrow(() -> new NoSuchElementException("Settlement not found"));
-
-            ensureSameHousehold(adminMember, settlement);
-
-            if (settlement.getStatus() != SettlementStatus.WAITING_FOR_APPROVAL) {
-                throw new IllegalArgumentException("Settlement is not awaiting approval");
-            }
-            if (settlement.getRequestedStatus() == null) {
-                throw new IllegalArgumentException("Requested status is missing");
-            }
-
-            settlement.setStatus(settlement.getRequestedStatus());
-            settlement.setRequestedStatus(null);
-            settlement.setPreviousStatus(null);
-
-            SettlementEntity updated = settlementRepository.save(settlement);
-            return toDTO(updated);
-        } catch (NoSuchElementException e) {
-            throw new NoSuchElementException("Failed to approve settlement: " + e.getMessage());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Failed to approve settlement: " + e.getMessage());
-        }
-    }
-
-    public SettlementDTO rejectSettlement(Long settlementId, Long adminMemberId) {
-        try {
-            HouseholdMember adminMember = getAdminMember(adminMemberId);
-            SettlementEntity settlement = settlementRepository.findById(settlementId)
-                    .orElseThrow(() -> new NoSuchElementException("Settlement not found"));
-
-            ensureSameHousehold(adminMember, settlement);
-
-            if (settlement.getStatus() != SettlementStatus.WAITING_FOR_APPROVAL) {
-                throw new IllegalArgumentException("Settlement is not awaiting approval");
-            }
-
-            SettlementStatus previousStatus = settlement.getPreviousStatus();
-            settlement.setStatus(previousStatus != null ? previousStatus : SettlementStatus.PENDING);
-            settlement.setRequestedStatus(null);
-            settlement.setPreviousStatus(null);
-
-            SettlementEntity updated = settlementRepository.save(settlement);
-            return toDTO(updated);
-        } catch (NoSuchElementException e) {
-            throw new NoSuchElementException("Failed to reject settlement: " + e.getMessage());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Failed to reject settlement: " + e.getMessage());
         }
     }
 
@@ -189,14 +111,12 @@ public class SettlementService {
             if (!householdId.equals(householdMember.getHousehold().getId())) {
                 throw new IllegalArgumentException("Household member does not belong to the specified household");
             }
-            List<SettlementEntity> currentMonthPendingSettlements = settlementRepository
-                    .findCurrentMonthPendingSettlementsForMember(householdMember);
-            BigDecimal totalPendingAmount = settlementRepository
-                    .findCurrentMonthTotalPendingAmountForMember(householdMember);
+            List<SettlementEntity> currentMonthPendingSettlements = settlementRepository.findCurrentMonthPendingSettlementsForMember(householdMember);
+            BigDecimal totalPendingAmount = settlementRepository.findCurrentMonthTotalPendingAmountForMember(householdMember);
             return Map.of(
-                    "pendingSettlements",
-                    currentMonthPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
-                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO);
+                    "pendingSettlements", currentMonthPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
+                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO
+            );
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to get settlement statistics: " + e.getMessage());
         } catch (IllegalArgumentException e) {
@@ -218,14 +138,12 @@ public class SettlementService {
             if (!householdId.equals(householdMember.getHousehold().getId())) {
                 throw new IllegalArgumentException("Household member does not belong to the specified household");
             }
-            List<SettlementEntity> lastThreeMonthsPendingSettlements = settlementRepository
-                    .findLastThreeMonthsPendingSettlementsForMember(householdMember);
-            BigDecimal totalPendingAmount = settlementRepository
-                    .findLastThreeMonthsTotalPendingAmountForMember(householdMember);
+            List<SettlementEntity> lastThreeMonthsPendingSettlements = settlementRepository.findLastThreeMonthsPendingSettlementsForMember(householdMember);
+            BigDecimal totalPendingAmount = settlementRepository.findLastThreeMonthsTotalPendingAmountForMember(householdMember);
             return Map.of(
-                    "pendingSettlements",
-                    lastThreeMonthsPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
-                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO);
+                    "pendingSettlements", lastThreeMonthsPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
+                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO
+            );
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to get settlement statistics: " + e.getMessage());
         } catch (IllegalArgumentException e) {
@@ -259,48 +177,6 @@ public class SettlementService {
                 .date(settlementEntity.getDate() != null ? settlementEntity.getDate().toString() : null)
                 .status(settlementEntity.getStatus())
                 .build();
-    }
-
-    private HouseholdMember getAdminMember(Long adminMemberId) {
-        UserEntity user = userService.getCurrentUser();
-        HouseholdMember adminMember = householdMemberRepository
-                .findById(adminMemberId)
-                .orElseThrow(() -> new NoSuchElementException("Household member not found"));
-        if (!adminMember.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("Unauthorized access to approve settlement");
-        }
-        if (adminMember.getRole() != HouseholdRole.ROLE_ADMIN) {
-            throw new IllegalArgumentException("Only admin can approve settlement");
-        }
-        return adminMember;
-    }
-
-    private void ensureSameHousehold(HouseholdMember adminMember, SettlementEntity settlement) {
-        if (!settlement.getFromMember().getHousehold().getId()
-                .equals(adminMember.getHousehold().getId())) {
-            throw new IllegalArgumentException("Settlement does not belong to admin household");
-        }
-    }
-
-    private void notifyAdminForApproval(SettlementEntity settlement, HouseholdMember requester) {
-        HouseholdMember adminMember = householdMemberRepository
-                .findByHouseholdAndRole(requester.getHousehold(), HouseholdRole.ROLE_ADMIN)
-                .orElseThrow(() -> new NoSuchElementException("Admin not found for household"));
-
-        if (adminMember.getUser() == null || adminMember.getUser().getEmail() == null) {
-            throw new IllegalArgumentException("Admin email not available");
-        }
-
-        String subject = "Settlement approval required";
-        String body = String.format(
-                "Member %s requested to change settlement #%d to %s.%nAmount: %s %s",
-                requester.getUser() != null ? requester.getUser().getFullName() : "Member",
-                settlement.getId(),
-                settlement.getRequestedStatus(),
-                settlement.getCurrency(),
-                settlement.getAmount());
-
-        emailService.sendEmail(adminMember.getUser().getEmail(), subject, body);
     }
 
     public SettlementEntity toEntity(SettlementDTO settlementDTO, HouseholdMember fromMember,

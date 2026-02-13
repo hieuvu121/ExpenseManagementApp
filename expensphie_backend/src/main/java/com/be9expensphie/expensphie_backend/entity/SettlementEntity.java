@@ -54,12 +54,6 @@ public class SettlementEntity {
     @Column(nullable = false)
     private SettlementStatus status;
 
-    @Enumerated(EnumType.STRING)
-    private SettlementStatus requestedStatus;
-
-    @Enumerated(EnumType.STRING)
-    private SettlementStatus previousStatus;
-
     @PrePersist
     public void prePersist() {
         if (date == null) {

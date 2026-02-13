@@ -10,7 +10,7 @@ export interface Settlement {
   amount: number | string;
   date: string | null;
   currency: string | null;
-  status: "PENDING" | "COMPLETED" | "WAITING_FOR_APPROVAL" | string;
+  status: "PENDING" | "COMPLETED" | string;
 }
 
 export interface SettlementStats {
@@ -60,38 +60,6 @@ export const settlementAPI = {
   toggleSettlementStatus: async (settlementId: number, memberId: number) => {
     const response = await apiRequest(
       `/settlements/${settlementId}/toggle/${memberId}`,
-      {
-        method: "PUT",
-      }
-    );
-    const data = (await response.json()) as {
-      settlement?: Settlement;
-    };
-    if (!data.settlement) {
-      throw new Error("Settlement not returned from server.");
-    }
-    return data.settlement;
-  },
-
-  approveSettlement: async (settlementId: number, memberId: number) => {
-    const response = await apiRequest(
-      `/settlements/${settlementId}/approve/${memberId}`,
-      {
-        method: "PUT",
-      }
-    );
-    const data = (await response.json()) as {
-      settlement?: Settlement;
-    };
-    if (!data.settlement) {
-      throw new Error("Settlement not returned from server.");
-    }
-    return data.settlement;
-  },
-
-  rejectSettlement: async (settlementId: number, memberId: number) => {
-    const response = await apiRequest(
-      `/settlements/${settlementId}/reject/${memberId}`,
       {
         method: "PUT",
       }
