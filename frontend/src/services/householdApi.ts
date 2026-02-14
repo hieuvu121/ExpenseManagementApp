@@ -69,4 +69,11 @@ export const householdAPI = {
     });
     return response.json();
   },
+  /**
+   * Get all expenses for a household
+   */
+  getHouseholdExpenses: async (householdId: number | string) => {
+    const response = await apiRequest(`/households/${householdId}/expenses`);
+    return response.json();
+  },
 };

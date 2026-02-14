@@ -16,10 +16,10 @@ public interface HouseholdMemberRepository extends JpaRepository<HouseholdMember
 
 		//get all household to select in frontend
     	@Query("""
-    		    SELECT m 
-    		    FROM HouseholdMember m 
-    		    JOIN FETCH m.user u
-    		    WHERE m.household.id = :householdId
+    		    select m 
+    		    from HouseholdMember m 
+    		    join fetch m.user u
+    		    where m.household.id = :householdId
     		""")
     		List<HouseholdMember> findByHouseholdId(@Param("householdId") Long householdId);
 

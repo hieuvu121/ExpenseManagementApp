@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -7,109 +8,62 @@ import {
 } from "../../ui/table";
 
 import Badge from "../../ui/badge/Badge";
+import { useHousehold } from "../../../context/HouseholdContext";
+import { householdAPI } from "../../../services/householdApi";
 
-interface Order {
+interface Expense {
   id: number;
-  user: {
-    image: string;
-    name: string;
-    role: string;
-  };
-  merchant: string;
-  team: {
-    images: string[];
-  };
-  status: string;
-  amount: string;
+  title?: string;
+  category?: string;
+  status?: string;
+  amount?: number | string;
+  date?: string;
+  currency?: string;
+  createdBy?: string;
+}
+interface MemberDTO {
+  memberId: number;
+  fullName: string;
 }
 
-// Define the table data using the interface
-const tableData: Order[] = [
-  {
-    id: 1,
-    user: {
-      image: "./images/user/user-17.jpg",
-      name: "Lindsey Curtis",
-      role: "Web Designer",
-    },
-    merchant: "Agency Website",
-    team: {
-      images: [
-        "./images/user/user-22.jpg",
-        "./images/user/user-23.jpg",
-        "./images/user/user-24.jpg",
-      ],
-    },
-    amount: "3.9K",
-    status: "Active",
-  },
-  {
-    id: 2,
-    user: {
-      image: "./images/user/user-18.jpg",
-      name: "Kaiya George",
-      role: "Project Manager",
-    },
-    merchant: "Technology",
-    team: {
-      images: ["./images/user/user-25.jpg", "./images/user/user-26.jpg"],
-    },
-    amount: "24.9K",
-    status: "Pending",
-  },
-  {
-    id: 3,
-    user: {
-      image: "./images/user/user-17.jpg",
-      name: "Zain Geidt",
-      role: "Content Writing",
-    },
-    merchant: "Blog Writing",
-    team: {
-      images: ["./images/user/user-27.jpg"],
-    },
-    amount: "12.7K",
-    status: "Active",
-  },
-  {
-    id: 4,
-    user: {
-      image: "./images/user/user-20.jpg",
-      name: "Abram Schleifer",
-      role: "Digital Marketer",
-    },
-    merchant: "Social Media",
-    team: {
-      images: [
-        "./images/user/user-28.jpg",
-        "./images/user/user-29.jpg",
-        "./images/user/user-30.jpg",
-      ],
-    },
-    amount: "2.8K",
-    status: "Cancel",
-  },
-  {
-    id: 5,
-    user: {
-      image: "./images/user/user-21.jpg",
-      name: "Carla George",
-      role: "Front-end Developer",
-    },
-    merchant: "Website",
-    team: {
-      images: [
-        "./images/user/user-31.jpg",
-        "./images/user/user-32.jpg",
-        "./images/user/user-33.jpg",
-      ],
-    },
-    amount: "4.5K",
-    status: "Active",
-  },
-];
-
 export default function BasicTableOne() {
+  const { activeHousehold } = useHousehold();
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [members, setMembers] = useState<MemberDTO[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!activeHousehold?.id) {
+        setExpenses([]);
+        setMembers([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const [expData, memberData] = await Promise.all([
+          householdAPI.getHouseholdExpenses(activeHousehold.id),
+          householdAPI.getHouseholdMembers(activeHousehold.id),
+        ]);
+
+        setExpenses(expData || []);
+        setMembers(memberData || []);
+      } catch (err) {
+        console.error("Failed to load household expenses or members:", err);
+        setExpenses([]);
+        setMembers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [activeHousehold?.id]);
+
+  // Helper to get payer name from response
+  const getPayerName = (exp: Expense) => exp.createdBy || "-";
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
@@ -117,24 +71,30 @@ export default function BasicTableOne() {
           <Table>
             {/* Table Header */}
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-              <TableRow>
+                <TableRow>
                 <TableCell
                   isHeader
                   className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                 >
-                  User
+                  Created By
                 </TableCell>
                 <TableCell
                   isHeader
                   className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                 >
-                  Merchant
+                  Category
                 </TableCell>
                 <TableCell
                   isHeader
                   className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                 >
-                  Team
+                  Currency
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                >
+                  Date
                 </TableCell>
                 <TableCell
                   isHeader
@@ -151,70 +111,58 @@ export default function BasicTableOne() {
               </TableRow>
             </TableHeader>
 
-            {/* Table Body */}
-            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {tableData.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="px-5 py-4 sm:px-6 text-start">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 overflow-hidden rounded-full">
-                        <img
-                          width={40}
-                          height={40}
-                          src={`${order.user.image}`}
-                          alt={order.user.name}
-                        />
-                      </div>
-                      <div>
-                        <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          {order.user.name}
-                        </span>
-                        <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                          {order.user.role}
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                    {order.merchant}
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                    <div className="flex -space-x-2">
-                      {order.team.images.map((teamImage, index) => (
-                        <div
-                          key={index}
-                          className="w-6 h-6 overflow-hidden border-2 border-white rounded-full dark:border-gray-900"
-                        >
-                          <img
-                            width={24}
-                            height={24}
-                            src={`${teamImage}`}
-                            alt={`Team member ${index + 1}`}
-                            className="w-full size-6"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                    <Badge
-                      size="sm"
-                      color={
-                        order.status === "Active"
-                          ? "success"
-                          : order.status === "Pending"
-                          ? "warning"
-                          : "error"
-                      }
-                    >
-                      {order.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                    {order.amount}
+              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                {loading ? (
+                <TableRow>
+                  <TableCell className="px-5 py-4" colSpan={6}>
+                    Loading...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : expenses.length === 0 ? (
+                <TableRow>
+                  <TableCell className="px-5 py-4" colSpan={6}>
+                    No expenses found for this household.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                expenses.map((exp) => (
+                  <TableRow key={exp.id}>
+                    <TableCell className="px-5 py-4 sm:px-6 text-start">
+                      <div>
+                        <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                          {exp.createdBy || "-"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                      {exp.category || "-"}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                      {exp.currency || "-"}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                      {exp.date ? new Date(exp.date).toLocaleDateString() : "-"}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                      <Badge
+                        size="sm"
+                        color={
+                          exp.status === "APPROVED"
+                            ? "success"
+                            : exp.status === "PENDING"
+                            ? "warning"
+                            : "error"
+                        }
+                      >
+                        {exp.status || "-"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                      {typeof exp.amount === "number" ? exp.amount.toFixed(2) : exp.amount ?? "-"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
