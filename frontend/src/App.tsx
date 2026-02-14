@@ -19,6 +19,7 @@ import AppLayout from "./layout/AppLayout";
 import MinimalLayout from "./layout/MinimalLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Home/Home";
+import Settlements from "./pages/Settlement/Settlements";
 import NoGroupsOnboarding from "./pages/NoGroupsOnboarding";
 
 export default function App() {
@@ -46,6 +47,9 @@ export default function App() {
 
             {/* Tables */}
             <Route path="basic-tables" element={<BasicTables />} />
+
+            {/* Settlements */}
+            <Route path="settlements" element={<Settlements />} />
 
             {/* Ui Elements */}
             <Route path="alerts" element={<Alerts />} />

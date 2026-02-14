@@ -11,6 +11,7 @@ import {
   PageIcon,
   TableIcon,
   UserCircleIcon,
+  TaskIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 
@@ -36,6 +37,11 @@ const navItems: NavItem[] = [
     name: "Expense List",
     icon: <TableIcon />,
     path: "basic-tables",
+  },
+  {
+    name: "Settlements",
+    icon: <TaskIcon />,
+    path: "settlements",
   },
   {
     icon: <CalenderIcon />,

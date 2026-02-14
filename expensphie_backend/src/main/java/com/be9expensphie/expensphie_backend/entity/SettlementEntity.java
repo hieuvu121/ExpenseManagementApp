@@ -24,13 +24,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "settlements",
-    uniqueConstraints = {
-        @UniqueConstraint(
-            columnNames = {"from_member_id", "to_member_id", "expense_split_details_id"}
-        )
-    }
-)
+@Table(name = "settlements", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "from_member_id", "to_member_id", "expense_split_details_id" })
+})
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

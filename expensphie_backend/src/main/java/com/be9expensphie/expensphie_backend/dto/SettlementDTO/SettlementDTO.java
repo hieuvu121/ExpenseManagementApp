@@ -19,7 +19,9 @@ public class SettlementDTO {
     private Long id;
     private Long fromMemberId;
     private Long toMemberId;
+    private String toMemberName;
     private Long expense_split_details_id;
+    private String expenseCategory;
     private BigDecimal amount;
     private String date;
     private String currency;
