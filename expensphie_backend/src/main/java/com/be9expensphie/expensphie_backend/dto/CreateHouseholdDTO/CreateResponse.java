@@ -14,4 +14,5 @@ public class CreateResponse {
     private Long id;
     private String name;
     private String role;
+    private Long memberId;
 }

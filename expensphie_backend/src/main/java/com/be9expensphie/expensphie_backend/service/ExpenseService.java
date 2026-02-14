@@ -90,6 +90,7 @@ public class ExpenseService {
 	            .date(expense.getDate())
 	            .method(expense.getMethod())
 	            .currency(expense.getCurrency())
+	            .createdBy(expense.getCreated_by().getUser().getFullName())
 	            .build();
 	}
 

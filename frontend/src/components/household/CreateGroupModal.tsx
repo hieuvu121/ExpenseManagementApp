@@ -89,6 +89,7 @@ export default function CreateGroupModal({ isOpen, onClose }: CreateGroupModalPr
         name: response.name,
         code: response.code || "", // The backend should return the code
         role: response.role,
+        memberId: response.memberId,
       };
       
       addHousehold(newHousehold);

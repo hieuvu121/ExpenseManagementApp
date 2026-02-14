@@ -58,6 +58,7 @@ public class HouseholdService {
 				.id(household.getId())
 				.name(household.getName())
 				.role(householdMember.getRole().name())
+				.memberId(householdMember.getId())
 				.build();
 	}
 	
@@ -88,6 +89,7 @@ public class HouseholdService {
 		        .householdId(household.getId())
 		        .householdName(household.getName())
 		        .role(member.getRole().name())
+		        .memberId(member.getId())
 		        .build();
 		}
 	
@@ -102,6 +104,7 @@ public class HouseholdService {
 						.name(m.getHousehold().getName())
 						.role(m.getRole().name())
 						.code(m.getHousehold().getCode())
+						.memberId(m.getId())
 						.build()
 						)
 				.toList();

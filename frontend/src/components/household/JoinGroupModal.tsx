@@ -126,6 +126,7 @@ export default function JoinGroupModal({ isOpen, onClose }: JoinGroupModalProps)
         name: response.householdName,
         code: trimmedCode,
         role: response.role,
+        memberId: response.memberId,
       };
       
       addHousehold(newHousehold);

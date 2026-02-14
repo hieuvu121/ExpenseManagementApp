@@ -12,6 +12,7 @@ import lombok.Data;
 @Data
 @Builder
 public class CreateExpenseResponseDTO {
+	private String createdBy;
     private Long id;
     private BigDecimal amount;
     private LocalDate date;
