@@ -21,7 +21,6 @@ import com.be9expensphie.expensphie_backend.service.ExpenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-@CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("households/{householdId}/expenses")
 @RequiredArgsConstructor

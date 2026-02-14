@@ -13,4 +13,5 @@ public class JoinHouseholdResponseDTO {
     private Long householdId;
     private String householdName;
     private String role;
+    private Long memberId;
 }

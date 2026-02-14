@@ -1,6 +1,7 @@
 // Use relative path to leverage Vite dev server proxy during development.
 // For production, set VITE_API_BASE_URL to the full backend URL.
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/app/v1";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/app/v1";
 
 /**
  * Get authentication token from localStorage

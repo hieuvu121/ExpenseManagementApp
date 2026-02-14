@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import ComponentCard from "../../components/common/ComponentCard";
@@ -11,19 +11,48 @@ import Radio from "../../components/form/input/Radio";
 import TextArea from "../../components/form/input/TextArea";
 
 import DropzoneComponent from "../../components/form/form-elements/DropZone";
+import { useHousehold } from "../../context/HouseholdContext";
+import { householdAPI } from "../../services/householdApi";
 
-type SplitMethod = "EQUAL" | "PERCENT" | "AMOUNT" | "SHARES";
+type SplitMethod = "EQUAL" | "AMOUNT";
+
+interface Member {
+  id: number;
+  name: string;
+}
 
 export default function AddExpense() {
-  
-  const members = useMemo(
-    () => [
-      { id: "u1", name: "Dung" },
-      { id: "u2", name: "Hieu" },
-      { id: "u3", name: "Phong" },
-    ],
-    []
-  );
+  const { activeHousehold } = useHousehold();
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+
+  // Fetch household members from API
+  useEffect(() => {
+    if (!activeHousehold?.id) {
+      setMembers([]);
+      return;
+    }
+
+    const fetchMembers = async () => {
+      setLoadingMembers(true);
+      try {
+        const memberData = await householdAPI.getHouseholdMembers(activeHousehold.id);
+        // Transform MemberDTO to Member format
+        const transformedMembers: Member[] = memberData.map((m) => ({
+          id: m.memberId,
+          name: m.fullName,
+        }));
+        setMembers(transformedMembers);
+      } catch (error) {
+        console.error("Failed to fetch household members:", error);
+        setMembers([]);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    fetchMembers();
+  }, [activeHousehold?.id]);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -50,15 +79,11 @@ export default function AddExpense() {
     []
   );
 
-  const memberSelectOptions = useMemo(
-    () => members.map((m) => ({ value: m.id, label: m.name })),
-    [members]
-  );
 
   const memberMultiOptions = useMemo(
     () =>
       members.map((m) => ({
-        value: m.id,
+        value: String(m.id),
         text: m.name,
         selected: false,
       })),
@@ -71,27 +96,61 @@ export default function AddExpense() {
   const [currency, setCurrency] = useState("AUD");
   const [date, setDate] = useState(today);
   const [category, setCategory] = useState("FOOD");
-  const [paidBy, setPaidBy] = useState(members[0]?.id ?? "");
-  const [participants, setParticipants] = useState<string[]>(
-    members.map((m) => m.id) // default chọn hết
-  );
+  const [participants, setParticipants] = useState<string[]>([]);
   const [splitMethod, setSplitMethod] = useState<SplitMethod>("EQUAL");
   const [note, setNote] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Dynamic split values theo participant
   const [splitValues, setSplitValues] = useState<Record<string, number>>({});
 
   const selectedParticipants = useMemo(
-    () => members.filter((m) => participants.includes(m.id)),
+    () => members.filter((m) => participants.includes(String(m.id))),
     [members, participants]
   );
 
-  const setSplitValue = (userId: string, value: string) => {
+  const setSplitValue = (userId: number | string, value: string) => {
     const num = Number(value);
+    const key = String(userId);
     setSplitValues((prev) => ({
       ...prev,
-      [userId]: Number.isFinite(num) ? num : 0,
+      [key]: Number.isFinite(num) ? num : 0,
     }));
+  };
+
+  /**
+   * Calculate split amounts based on split method
+   */
+  const calculateSplits = (): Array<{ memberId: number; amount: number }> => {
+    const amountNum = Number(amount);
+    const participantIds = selectedParticipants.map((p) => p.id);
+    const splitCount = participantIds.length;
+
+    if (splitMethod === "EQUAL") {
+      return participantIds.map((memberId) => ({
+        memberId,
+        amount: Math.round((amountNum / splitCount) * 100) / 100,
+      }));
+    }
+
+    if (splitMethod === "AMOUNT") {
+      return participantIds.map((memberId) => ({
+        memberId,
+        amount: splitValues[String(memberId)] || 0,
+      }));
+    }
+
+    return [];
+  };
+
+  // Calculate total for AMOUNT mode
+  const calculateTotalSplitAmount = (): number => {
+    const participantIds = selectedParticipants.map((p) => String(p.id));
+    return participantIds.reduce((total, id) => {
+      return total + (splitValues[id] || 0);
+    }, 0);
   };
 
   // Basic validation
@@ -100,27 +159,74 @@ export default function AddExpense() {
   const isTitleValid = title.trim().length > 0;
   const isParticipantsValid = participants.length > 0;
 
-  const canSubmit = isTitleValid && isAmountValid && isParticipantsValid;
+  // Validate AMOUNT mode - total must equal expense amount
+  const totalSplitAmount = calculateTotalSplitAmount();
+  const isSplitAmountValid =
+    splitMethod === "EQUAL" ||
+    (splitMethod === "AMOUNT" && Math.abs(totalSplitAmount - amountNumber) < 0.01);
 
-  const handleSubmit = () => {
+  const canSubmit =
+    isTitleValid &&
+    isAmountValid &&
+    isParticipantsValid &&
+    activeHousehold &&
+    isSplitAmountValid &&
+    !isLoading;
+
+  const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    const payload = {
-      title: title.trim(),
-      amount: amountNumber,
-      currency,
-      date,
-      category,
-      paidBy,
-      participants,
-      splitMethod,
-      splitValues: splitMethod === "EQUAL" ? {} : splitValues,
-      note: note.trim(),
-    };
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
 
-    console.log("Create expense payload:", payload);
-    // TODO: call API createExpense(payload)
-  };
+    try {
+      if (!activeHousehold) {
+        throw new Error("No active household selected");
+      }
+
+      const splits = calculateSplits();
+
+      const expenseData = {
+        amount: amountNumber,
+        date,
+        category,
+        method: splitMethod,
+        currency,
+        splits,
+      };
+
+      const response = await householdAPI.createExpense(
+        activeHousehold.id,
+        expenseData
+      );
+
+      setSuccessMessage(
+        `Expense created successfully! ID: ${response.id}`
+      );
+
+      // Reset form
+      setTitle("");
+      setAmount("");
+      setCurrency("AUD");
+      setDate(today);
+      setCategory("FOOD");
+      setParticipants([]);
+      setSplitMethod("EQUAL");
+      setSplitValues({});
+      setNote("");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to create expense";
+      setErrorMessage(errorMsg);
+      console.error("Create expense error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <div>
@@ -199,17 +305,8 @@ export default function AddExpense() {
                     className="dark:bg-dark-900"
                   />
                 </div>
-              </div>
 
-              {/* Paid by */}
-              <div>
-                <Label>Paid by</Label>
-                <Select
-                  options={memberSelectOptions}
-                  placeholder="Select payer"
-                  onChange={(v) => setPaidBy(v)}
-                  className="dark:bg-dark-900"
-                />
+              
               </div>
 
               {/* Participants */}
@@ -241,14 +338,6 @@ export default function AddExpense() {
                   label="Split equally"
                 />
                 <Radio
-                  id="split-percent"
-                  name="split"
-                  value="PERCENT"
-                  checked={splitMethod === "PERCENT"}
-                  onChange={() => setSplitMethod("PERCENT")}
-                  label="By percentage"
-                />
-                <Radio
                   id="split-amount"
                   name="split"
                   value="AMOUNT"
@@ -256,26 +345,13 @@ export default function AddExpense() {
                   onChange={() => setSplitMethod("AMOUNT")}
                   label="By amount"
                 />
-                <Radio
-                  id="split-shares"
-                  name="split"
-                  value="SHARES"
-                  checked={splitMethod === "SHARES"}
-                  onChange={() => setSplitMethod("SHARES")}
-                  label="By shares"
-                />
               </div>
 
               {/* Dynamic fields */}
-              {splitMethod !== "EQUAL" && (
+              {splitMethod === "AMOUNT" && (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Enter {splitMethod === "PERCENT"
-                      ? "percentage (%)"
-                      : splitMethod === "AMOUNT"
-                      ? "amount"
-                      : "shares"}{" "}
-                    for each participant.
+                    Enter amount for each participant. Total must equal {amountNumber.toFixed(2)} {currency}.
                   </p>
 
                   <div className="space-y-3">
@@ -291,16 +367,10 @@ export default function AddExpense() {
                         <div className="sm:col-span-2">
                           <Input
                             type="number"
-                            placeholder={
-                              splitMethod === "PERCENT"
-                                ? "0 - 100"
-                                : splitMethod === "AMOUNT"
-                                ? "0"
-                                : "1"
-                            }
+                            placeholder="0"
                             value={
-                              splitValues[p.id] !== undefined
-                                ? String(splitValues[p.id])
+                              splitValues[String(p.id)] !== undefined
+                                ? String(splitValues[String(p.id)])
                                 : ""
                             }
                             onChange={(e) =>
@@ -311,6 +381,30 @@ export default function AddExpense() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Total display */}
+                  <div className="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-gray-900/50">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Total Allocated:
+                      </p>
+                      <p
+                        className={`text-sm font-semibold ${
+                          Math.abs(totalSplitAmount - amountNumber) < 0.01
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {totalSplitAmount.toFixed(2)} / {amountNumber.toFixed(2)} {currency}
+                      </p>
+                    </div>
+                  </div>
+
+                  {!isSplitAmountValid && (
+                    <p className="mt-2 text-sm text-red-500">
+                      Total allocated amount must equal {amountNumber.toFixed(2)} {currency}.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -338,7 +432,7 @@ export default function AddExpense() {
                 disabled={!canSubmit}
                 className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Create Expense
+                {isLoading ? "Creating..." : "Create Expense"}
               </button>
 
               <button
@@ -349,17 +443,32 @@ export default function AddExpense() {
                   setCurrency("AUD");
                   setDate(today);
                   setCategory("FOOD");
-                  setPaidBy(members[0]?.id ?? "");
-                  setParticipants(members.map((m) => m.id));
+                  setParticipants([]);
                   setSplitMethod("EQUAL");
                   setSplitValues({});
                   setNote("");
+                  setErrorMessage(null);
+                  setSuccessMessage(null);
                 }}
                 className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-white/[0.03]"
               >
                 Reset
               </button>
             </div>
+
+            {/* Success Message */}
+            {successMessage && (
+              <div className="mt-4 rounded-lg bg-green-50 p-4 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                {successMessage}
+              </div>
+            )}
+
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                {errorMessage}
+              </div>
+            )}
           </ComponentCard>
         </div>
       </div>

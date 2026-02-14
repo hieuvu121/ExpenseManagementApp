@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import PendingExpense from "../../components/displayBox/PendingExpense";
 import MonthlySalesChart from "../../components/displayBox/MonthlyExpenseChart";
 import StatisticsChart from "../../components/displayBox/StatisticsChart";
@@ -12,7 +13,16 @@ import { useHousehold } from "../../context/HouseholdContext";
 export default function Home() {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const { households } = useHousehold();
+  const { households} = useHousehold();
+  const navigate = useNavigate();
+  const hasRedirected = useRef(false);
+
+  // If user has no households after loading is complete, redirect to onboarding
+ 
+
+
+  // Show loading state while fetching households
+
 
   return (
     <>
