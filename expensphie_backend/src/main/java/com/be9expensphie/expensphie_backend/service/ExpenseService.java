@@ -196,6 +196,10 @@ public class ExpenseService {
 	public void rejectExpense(Long householdId, Long expenseId) {
 		checkAdmin(householdId);
 		ExpenseEntity expense = findExpense(householdId, expenseId);
-		expenseRepo.delete(expense);
+		if(expense.getStatus()!=ExpenseStatus.PENDING) {
+			throw new RuntimeException("Only Pending expense can be rollback"); 
+		}
+		expense.setStatus(ExpenseStatus.REJECTED);
+		expenseRepo.save(expense);
 	}
 }
