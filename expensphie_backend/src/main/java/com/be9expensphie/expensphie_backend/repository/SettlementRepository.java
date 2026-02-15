@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 import com.be9expensphie.expensphie_backend.entity.HouseholdMember;
 import com.be9expensphie.expensphie_backend.entity.SettlementEntity;
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
+import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
+import com.be9expensphie.expensphie_backend.entity.ExpenseSplitDetailsEntity;
 
 public interface SettlementRepository extends JpaRepository<SettlementEntity, Long> {
 
@@ -30,15 +32,17 @@ public interface SettlementRepository extends JpaRepository<SettlementEntity, Lo
             + "and FUNCTION('YEAR', s.date) = FUNCTION('YEAR', CURRENT_DATE)")
     BigDecimal findCurrentMonthTotalPendingAmountForMember(@Param("member") HouseholdMember member);
 
-    
     @Query(value = "SELECT * FROM settlements s WHERE s.from_member_id = :#{#member.id} "
-        + "AND s.status = 'PENDING'"
-        + "AND s.date >= DATE_SUB(CURRENT_DATE, INTERVAL 3 MONTH)", nativeQuery = true)
+            + "AND s.status = 'PENDING'"
+            + "AND s.date >= DATE_SUB(CURRENT_DATE, INTERVAL 3 MONTH)", nativeQuery = true)
     List<SettlementEntity> findLastThreeMonthsPendingSettlementsForMember(@Param("member") HouseholdMember member);
 
-
     @Query(value = "SELECT SUM(s.amount) FROM settlements s WHERE s.from_member_id = :#{#member.id} "
-        + "AND s.status = 'PENDING'"
-        + "AND s.date >= DATE_SUB(CURRENT_DATE, INTERVAL 3 MONTH)", nativeQuery = true)
+            + "AND s.status = 'PENDING'"
+            + "AND s.date >= DATE_SUB(CURRENT_DATE, INTERVAL 3 MONTH)", nativeQuery = true)
     BigDecimal findLastThreeMonthsTotalPendingAmountForMember(@Param("member") HouseholdMember member);
+
+    List<SettlementEntity> findByToMemberAndStatus(HouseholdMember member, SettlementStatus status);
+
+    boolean existsByExpenseSplitDetails(ExpenseSplitDetailsEntity expenseSplitDetails);
 }

@@ -7,17 +7,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.be9expensphie.expensphie_backend.dto.SettlementDTO.CreateSettlementRequestDTO;
 import com.be9expensphie.expensphie_backend.dto.SettlementDTO.SettlementDTO;
 import com.be9expensphie.expensphie_backend.service.SettlementService;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -32,53 +28,21 @@ public class SettlementController {
             @PathVariable Long memberId, @PathVariable Long householdId) {
         try {
             return ResponseEntity.ok(Map.of(
-                    "error", false,
-                    "settlements", settlementService.getSettlementsForCurrentUser(memberId, householdId)
+                "error", false,
+                "settlements", settlementService.getSettlementsForCurrentUser(memberId, householdId)
             ));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
                         "error", true,
                         "message", e.getMessage()
-                    )
-            );
+                    ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
                         "error", true,
                         "message", e.getMessage()
-                    )
-            );
-        }
-    }
-
-    @PostMapping("/create")
-    public ResponseEntity<?> createSettlement(
-            @Valid @RequestBody CreateSettlementRequestDTO request) {
-        try {
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                    "error", false,
-                    "settlement", settlementService.createSettlement(
-                            request.getExpenseId(),
-                            request.getExpenseSplitDetailsId(),
-                            request.getFromMemberId(),
-                            request.getToMemberId()
-                    )
-            ));
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                    Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                    ));
         }
     }
 
@@ -89,22 +53,17 @@ public class SettlementController {
             SettlementDTO updatedSettlement = settlementService.toggleSettlementStatus(settlementId, memberId);
             return ResponseEntity.ok(Map.of(
                     "error", false,
-                    "settlement", updatedSettlement
-            ));
+                    "settlement", updatedSettlement));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         }
     }
 
@@ -112,25 +71,21 @@ public class SettlementController {
     public ResponseEntity<Map<String, Object>> getCurrentMonthPendingSettlements(
             @PathVariable Long memberId, @PathVariable Long householdId) {
         try {
-            Map<String, Object> result = settlementService.getCurrentMonthSettlementStatisticsForMember(memberId, householdId);
+            Map<String, Object> result = settlementService.getCurrentMonthSettlementStatisticsForMember(memberId,
+                    householdId);
             return ResponseEntity.ok(Map.of(
                     "error", false,
-                    "data", result
-            ));
+                    "data", result));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         }
     }
 
@@ -138,25 +93,83 @@ public class SettlementController {
     public ResponseEntity<Map<String, Object>> getLastThreeMonthsPendingSettlements(
             @PathVariable Long memberId, @PathVariable Long householdId) {
         try {
-            Map<String, Object> result = settlementService.getLastThreeMonthsSettlementStatisticsForMember(memberId, householdId);
+            Map<String, Object> result = settlementService.getLastThreeMonthsSettlementStatisticsForMember(memberId,
+                    householdId);
             return ResponseEntity.ok(Map.of(
                     "error", false,
-                    "data", result
-            ));
+                    "data", result));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     Map.of(
-                        "error", true,
-                        "message", e.getMessage()
-                    )
-            );
+                            "error", true,
+                            "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/awaiting/{memberId}/{householdId}")
+    public ResponseEntity<?> getAwaitingApprovals(
+            @PathVariable Long memberId, @PathVariable Long householdId) {
+        try {
+            return ResponseEntity.ok(Map.of(
+                    "error", false,
+                    "settlements", settlementService.getAwaitingApprovalForReceiver(memberId, householdId)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{settlementId}/approve/{memberId}")
+    public ResponseEntity<?> approveSettlement(
+            @PathVariable Long settlementId, @PathVariable Long memberId) {
+        try {
+            SettlementDTO updatedSettlement = settlementService.approveSettlement(settlementId, memberId);
+            return ResponseEntity.ok(Map.of(
+                    "error", false,
+                    "settlement", updatedSettlement));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{settlementId}/reject/{memberId}")
+    public ResponseEntity<?> rejectSettlement(
+            @PathVariable Long settlementId, @PathVariable Long memberId) {
+        try {
+            SettlementDTO updatedSettlement = settlementService.rejectSettlement(settlementId, memberId);
+            return ResponseEntity.ok(Map.of(
+                    "error", false,
+                    "settlement", updatedSettlement));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    Map.of(
+                            "error", true,
+                            "message", e.getMessage()));
         }
     }
 }

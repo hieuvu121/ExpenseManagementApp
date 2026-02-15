@@ -76,4 +76,28 @@ export const householdAPI = {
     const response = await apiRequest(`/households/${householdId}/expenses`);
     return response.json();
   },
+
+  approveExpense: async (householdId: number | string, expenseId: number | string) => {
+    const response = await apiRequest(`/households/${householdId}/expenses/${expenseId}/approve`, {
+      method: "PATCH",
+    });
+    return response.json();
+  },
+
+  rollbackExpense: async (householdId: number | string, expenseId: number | string) => {
+    const response = await apiRequest(`/households/${householdId}/expenses/${expenseId}/rollback`, {
+      method: "PATCH",
+    });
+    return response.json();
+  },
+
+  rejectExpense: async (householdId: number | string, expenseId: number | string) => {
+    const response = await apiRequest(`/households/${householdId}/expenses/${expenseId}/reject`, {
+      method: "DELETE",
+    });
+    if (response.status === 204) {
+      return { success: true };
+    }
+    return response.json();
+  },
 };

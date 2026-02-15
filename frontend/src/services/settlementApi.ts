@@ -4,13 +4,14 @@ export interface Settlement {
   id: number;
   fromMemberId: number;
   toMemberId: number;
+  fromMemberName?: string | null;
   toMemberName?: string | null;
   expense_split_details_id: number;
   expenseCategory?: string | null;
   amount: number | string;
   date: string | null;
   currency: string | null;
-  status: "PENDING" | "COMPLETED" | string;
+  status: "PENDING" | "AWAITING_APPROVAL" | "COMPLETED" | string;
 }
 
 export interface SettlementStats {
@@ -60,6 +61,44 @@ export const settlementAPI = {
   toggleSettlementStatus: async (settlementId: number, memberId: number) => {
     const response = await apiRequest(
       `/settlements/${settlementId}/toggle/${memberId}`,
+      {
+        method: "PUT",
+      }
+    );
+    const data = (await response.json()) as {
+      settlement?: Settlement;
+    };
+    if (!data.settlement) {
+      throw new Error("Settlement not returned from server.");
+    }
+    return data.settlement;
+  },
+
+  getAwaitingApprovals: async (memberId: number, householdId: number) => {
+    const response = await apiRequest(`/settlements/awaiting/${memberId}/${householdId}`);
+    const data = (await response.json()) as {
+      settlements?: Settlement[];
+    };
+    return data.settlements ?? [];
+  },
+
+  approveSettlement: async (settlementId: number, memberId: number) => {
+    const response = await apiRequest(`/settlements/${settlementId}/approve/${memberId}`,
+      {
+        method: "PUT",
+      }
+    );
+    const data = (await response.json()) as {
+      settlement?: Settlement;
+    };
+    if (!data.settlement) {
+      throw new Error("Settlement not returned from server.");
+    }
+    return data.settlement;
+  },
+
+  rejectSettlement: async (settlementId: number, memberId: number) => {
+    const response = await apiRequest(`/settlements/${settlementId}/reject/${memberId}`,
       {
         method: "PUT",
       }

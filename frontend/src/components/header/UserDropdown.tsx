@@ -45,6 +45,7 @@ export default function UserDropdown() {
     localStorage.removeItem("authUser");
     localStorage.removeItem("activeHouseholdId");
     localStorage.removeItem("memberId");
+    localStorage.removeItem("memberRole");
 
     closeDropdown();
     navigate("/TailAdmin/signin");

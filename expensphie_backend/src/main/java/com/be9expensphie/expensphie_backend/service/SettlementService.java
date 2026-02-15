@@ -12,14 +12,13 @@ import com.be9expensphie.expensphie_backend.entity.SettlementEntity;
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
 import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
 import com.be9expensphie.expensphie_backend.entity.UserEntity;
+import com.be9expensphie.expensphie_backend.entity.ExpenseEntity;
 import com.be9expensphie.expensphie_backend.dto.SettlementDTO.SettlementDTO;
 import com.be9expensphie.expensphie_backend.entity.ExpenseSplitDetailsEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-import com.be9expensphie.expensphie_backend.repository.ExpenseRepository;
-import com.be9expensphie.expensphie_backend.repository.ExpenseSplitDetailsRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdMemberRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdRepository;
 import com.be9expensphie.expensphie_backend.repository.SettlementRepository;
@@ -33,8 +32,6 @@ public class SettlementService {
     private final UserService userService;
     private final HouseholdMemberRepository householdMemberRepository;
     private final HouseholdRepository householdRepository;
-    private final ExpenseRepository expenseRepository;
-    private final ExpenseSplitDetailsRepository expenseSplitDetailsRepository;
 
     @SuppressWarnings("null")
     public List<SettlementDTO> getSettlementsForCurrentUser(Long memberId, Long householdId) {
@@ -79,11 +76,13 @@ public class SettlementService {
 
             switch (settlement.getStatus()) {
                 case PENDING:
-                    settlement.setStatus(SettlementStatus.COMPLETED);
+                    settlement.setStatus(SettlementStatus.AWAITING_APPROVAL);
                     break;
-                case COMPLETED:
+                case AWAITING_APPROVAL:
                     settlement.setStatus(SettlementStatus.PENDING);
                     break;
+                case COMPLETED:
+                    throw new IllegalArgumentException("Completed settlements require receiver approval to change");
                 default:
                     throw new IllegalArgumentException("Invalid settlement status");
             }
@@ -94,6 +93,90 @@ public class SettlementService {
             throw new NoSuchElementException("Failed to toggle settlement status: " + e.getMessage());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Failed to toggle settlement status: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("null")
+    public List<SettlementDTO> getAwaitingApprovalForReceiver(Long memberId, Long householdId) {
+        try {
+            UserEntity user = userService.getCurrentUser();
+            HouseholdMember householdMember = householdMemberRepository
+                    .findByUserAndHousehold(user, householdRepository.findById(householdId)
+                            .orElseThrow(() -> new NoSuchElementException("Household not found")))
+                    .orElseThrow(() -> new NoSuchElementException("Household member not found"));
+
+            if (!householdMember.getId().equals(memberId)) {
+                throw new IllegalArgumentException("Unauthorized access to approval queue");
+            }
+
+            List<SettlementEntity> settlements = settlementRepository.findByToMemberAndStatus(
+                    householdMember, SettlementStatus.AWAITING_APPROVAL);
+
+            return settlements.stream().map(this::toDTO).collect(Collectors.toList());
+        } catch (NoSuchElementException e) {
+            throw new NoSuchElementException("Failed to get approvals: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Failed to get approvals: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("null")
+    public SettlementDTO approveSettlement(Long settlementId, Long memberId) {
+        try {
+            UserEntity user = userService.getCurrentUser();
+            HouseholdMember householdMember = householdMemberRepository
+                    .findById(memberId)
+                    .orElseThrow(() -> new NoSuchElementException("Household member not found"));
+            if (!householdMember.getUser().getId().equals(user.getId())) {
+                throw new IllegalArgumentException("Unauthorized access to approve settlement");
+            }
+
+            SettlementEntity settlement = settlementRepository.findById(settlementId)
+                    .orElseThrow(() -> new NoSuchElementException("Settlement not found"));
+            if (!settlement.getToMember().getId().equals(memberId)) {
+                throw new IllegalArgumentException("Only receiver can approve settlement");
+            }
+            if (settlement.getStatus() != SettlementStatus.AWAITING_APPROVAL) {
+                throw new IllegalArgumentException("Settlement is not awaiting approval");
+            }
+
+            settlement.setStatus(SettlementStatus.COMPLETED);
+            SettlementEntity updated = settlementRepository.save(settlement);
+            return toDTO(updated);
+        } catch (NoSuchElementException e) {
+            throw new NoSuchElementException("Failed to approve settlement: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Failed to approve settlement: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("null")
+    public SettlementDTO rejectSettlement(Long settlementId, Long memberId) {
+        try {
+            UserEntity user = userService.getCurrentUser();
+            HouseholdMember householdMember = householdMemberRepository
+                    .findById(memberId)
+                    .orElseThrow(() -> new NoSuchElementException("Household member not found"));
+            if (!householdMember.getUser().getId().equals(user.getId())) {
+                throw new IllegalArgumentException("Unauthorized access to reject settlement");
+            }
+
+            SettlementEntity settlement = settlementRepository.findById(settlementId)
+                    .orElseThrow(() -> new NoSuchElementException("Settlement not found"));
+            if (!settlement.getToMember().getId().equals(memberId)) {
+                throw new IllegalArgumentException("Only receiver can reject settlement");
+            }
+            if (settlement.getStatus() != SettlementStatus.AWAITING_APPROVAL) {
+                throw new IllegalArgumentException("Settlement is not awaiting approval");
+            }
+
+            settlement.setStatus(SettlementStatus.PENDING);
+            SettlementEntity updated = settlementRepository.save(settlement);
+            return toDTO(updated);
+        } catch (NoSuchElementException e) {
+            throw new NoSuchElementException("Failed to reject settlement: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Failed to reject settlement: " + e.getMessage());
         }
     }
 
@@ -111,12 +194,14 @@ public class SettlementService {
             if (!householdId.equals(householdMember.getHousehold().getId())) {
                 throw new IllegalArgumentException("Household member does not belong to the specified household");
             }
-            List<SettlementEntity> currentMonthPendingSettlements = settlementRepository.findCurrentMonthPendingSettlementsForMember(householdMember);
-            BigDecimal totalPendingAmount = settlementRepository.findCurrentMonthTotalPendingAmountForMember(householdMember);
+            List<SettlementEntity> currentMonthPendingSettlements = settlementRepository
+                    .findCurrentMonthPendingSettlementsForMember(householdMember);
+            BigDecimal totalPendingAmount = settlementRepository
+                    .findCurrentMonthTotalPendingAmountForMember(householdMember);
             return Map.of(
-                    "pendingSettlements", currentMonthPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
-                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO
-            );
+                    "pendingSettlements",
+                    currentMonthPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
+                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO);
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to get settlement statistics: " + e.getMessage());
         } catch (IllegalArgumentException e) {
@@ -138,12 +223,14 @@ public class SettlementService {
             if (!householdId.equals(householdMember.getHousehold().getId())) {
                 throw new IllegalArgumentException("Household member does not belong to the specified household");
             }
-            List<SettlementEntity> lastThreeMonthsPendingSettlements = settlementRepository.findLastThreeMonthsPendingSettlementsForMember(householdMember);
-            BigDecimal totalPendingAmount = settlementRepository.findLastThreeMonthsTotalPendingAmountForMember(householdMember);
+            List<SettlementEntity> lastThreeMonthsPendingSettlements = settlementRepository
+                    .findLastThreeMonthsPendingSettlementsForMember(householdMember);
+            BigDecimal totalPendingAmount = settlementRepository
+                    .findLastThreeMonthsTotalPendingAmountForMember(householdMember);
             return Map.of(
-                    "pendingSettlements", lastThreeMonthsPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
-                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO
-            );
+                    "pendingSettlements",
+                    lastThreeMonthsPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
+                    "totalPendingAmount", totalPendingAmount != null ? totalPendingAmount : BigDecimal.ZERO);
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to get settlement statistics: " + e.getMessage());
         } catch (IllegalArgumentException e) {
@@ -152,8 +239,14 @@ public class SettlementService {
     }
 
     public SettlementDTO toDTO(SettlementEntity settlementEntity) {
+        String fromMemberName = null;
         String toMemberName = null;
         String expenseCategory = null;
+
+        if (settlementEntity.getFromMember() != null
+                && settlementEntity.getFromMember().getUser() != null) {
+            fromMemberName = settlementEntity.getFromMember().getUser().getFullName();
+        }
 
         if (settlementEntity.getToMember() != null
                 && settlementEntity.getToMember().getUser() != null) {
@@ -170,6 +263,7 @@ public class SettlementService {
                 .amount(settlementEntity.getAmount())
                 .fromMemberId(settlementEntity.getFromMember().getId())
                 .toMemberId(settlementEntity.getToMember().getId())
+                .fromMemberName(fromMemberName)
                 .toMemberName(toMemberName)
                 .currency(settlementEntity.getCurrency())
                 .expense_split_details_id(settlementEntity.getExpenseSplitDetails().getId())
@@ -198,43 +292,30 @@ public class SettlementService {
     }
 
     @SuppressWarnings("null")
-    public SettlementDTO createSettlement(Long expenseId, Long expenseSplitDetailsId, Long fromMemberId,
-            Long toMemberId) {
-        try {
-            var expense = expenseRepository.findById(expenseId)
-                    .orElseThrow(() -> new NoSuchElementException("Expense not found"));
+    public void createSettlementsForExpense(ExpenseEntity expense) {
+        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            throw new IllegalArgumentException("Expense is not approved");
+        }
 
-            var splitDetails = expenseSplitDetailsRepository.findById(expenseSplitDetailsId)
-                    .orElseThrow(() -> new NoSuchElementException("Expense split details not found"));
-
-            if (!splitDetails.getExpense().getId().equals(expense.getId())) {
-                throw new IllegalArgumentException("Expense split does not belong to provided expense");
+        HouseholdMember receiver = expense.getCreated_by();
+        for (ExpenseSplitDetailsEntity splitDetails : expense.getSplitDetails()) {
+            if (splitDetails.getMember().getId().equals(receiver.getId())) {
+                continue;
             }
-
-            if (expense.getStatus() != ExpenseStatus.APPROVED) {
-                throw new IllegalArgumentException("Cannot create settlement for non-approved expense");
+            if (settlementRepository.existsByExpenseSplitDetails(splitDetails)) {
+                continue;
             }
-
-            HouseholdMember fromMember = householdMemberRepository.findById(fromMemberId)
-                    .orElseThrow(() -> new NoSuchElementException("From member not found"));
-
-            HouseholdMember toMember = householdMemberRepository.findById(toMemberId)
-                    .orElseThrow(() -> new NoSuchElementException("To member not found"));
 
             SettlementEntity settlement = SettlementEntity.builder()
-                    .fromMember(fromMember)
-                    .toMember(toMember)
+                    .fromMember(splitDetails.getMember())
+                    .toMember(receiver)
                     .expenseSplitDetails(splitDetails)
                     .amount(splitDetails.getAmount())
                     .currency(expense.getCurrency())
+                    .status(SettlementStatus.PENDING)
                     .build();
 
-            SettlementEntity saved = settlementRepository.save(settlement);
-            return toDTO(saved);
-        } catch (NoSuchElementException e) {
-            throw new NoSuchElementException("Failed to create settlement: " + e.getMessage());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Failed to create settlement: " + e.getMessage());
+            settlementRepository.save(settlement);
         }
     }
 }
