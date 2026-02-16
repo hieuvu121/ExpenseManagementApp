@@ -124,13 +124,13 @@ export default function BasicTableOne() {
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {loading ? (
                 <TableRow>
-                  <TableCell className="px-5 py-4" colSpan={6}>
+                  <TableCell className="px-5 py-4 text-gray-800 dark:text-white/90">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : expenses.length === 0 ? (
                 <TableRow>
-                  <TableCell className="px-5 py-4" colSpan={6}>
+                  <TableCell className="px-5 py-4 text-gray-800 dark:text-white/90">
                     No expenses found for this household.
                   </TableCell>
                 </TableRow>
