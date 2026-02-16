@@ -3,20 +3,34 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { MoreDotIcon } from "../../icons";
 
-type ExpenseRow = {
-  member: string;
-  category: string;
-  amount: number;
+export interface RecentExpenseItem {
+  id?: number | string;
+  createdBy?: string | null;
+  category?: string | null;
+  amount?: number | string | null;
+  currency?: string | null;
+  date?: string | null;
+}
+
+interface RecentExpenseProps {
+  expenses: RecentExpenseItem[];
+  isLoading?: boolean;
+  error?: string | null;
+}
+
+const formatAmount = (amount: number | string | null | undefined) => {
+  if (amount === null || amount === undefined) return "-";
+  const parsed = typeof amount === "number" ? amount : Number(amount);
+  if (Number.isNaN(parsed)) return String(amount);
+  return parsed.toFixed(2);
 };
 
-export default function RecentExpense() {
+export default function RecentExpense({
+  expenses,
+  isLoading = false,
+  error = null,
+}: RecentExpenseProps) {
   const [isOpen, setIsOpen] = useState(false);
-
-  const data: ExpenseRow[] = [
-    { member: "Hieu", category: "Food", amount: 24.5 },
-    { member: "Phong", category: "Transport", amount: 12.0 },
-    
-  ];
 
   function toggleDropdown() {
     setIsOpen((prev) => !prev);
@@ -75,22 +89,37 @@ export default function RecentExpense() {
           <div
             className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-transparent"
           >
-            {data.map((row, idx) => (
-              <div
-                key={idx}
-                className="grid grid-cols-3 gap-3 px-4 py-3 text-sm"
-              >
-                <span className="font-medium text-gray-800 dark:text-white/90">
-                  {row.member}
-                </span>
-                <span className="text-gray-500 dark:text-gray-400">
-                  {row.category}
-                </span>
-                <span className="text-right font-semibold text-gray-800 dark:text-white/90">
-                  ${row.amount.toFixed(2)}
-                </span>
+            {isLoading ? (
+              <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                Loading...
               </div>
-            ))}
+            ) : error ? (
+              <div className="px-4 py-3 text-sm text-error-600 dark:text-error-400">
+                {error}
+              </div>
+            ) : expenses.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                No recent expenses.
+              </div>
+            ) : (
+              expenses.map((row) => (
+                <div
+                  key={row.id ?? `${row.createdBy}-${row.category}-${row.amount}-${row.date}`}
+                  className="grid grid-cols-3 gap-3 px-4 py-3 text-sm"
+                >
+                  <span className="font-medium text-gray-800 dark:text-white/90">
+                    {row.createdBy || "Unknown"}
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {row.category || "Uncategorized"}
+                  </span>
+                  <span className="text-right font-semibold text-gray-800 dark:text-white/90">
+                    {row.currency ? `${row.currency} ` : ""}
+                    {formatAmount(row.amount)}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
