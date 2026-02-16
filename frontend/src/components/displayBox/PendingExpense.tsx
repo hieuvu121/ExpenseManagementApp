@@ -24,7 +24,7 @@ export default function PendingTasksBox() {
   const isAdmin = getStoredRole() === "ROLE_ADMIN";
 
   const loadPendingExpenses = async () => {
-    if (!activeHousehold?.id || !isAdmin) {
+    if (!activeHousehold?.id) {
       setPendingExpenses([]);
       return;
     }
@@ -47,7 +47,7 @@ export default function PendingTasksBox() {
 
   useEffect(() => {
     loadPendingExpenses();
-  }, [activeHousehold?.id, isAdmin]);
+  }, [activeHousehold?.id]);
 
   const handleApprove = async (expenseId: number) => {
     if (!activeHousehold?.id) {
@@ -77,10 +77,6 @@ export default function PendingTasksBox() {
     }
   };
 
-  if (!isAdmin) {
-    return null;
-  }
-
   return (
     <div className="grid grid-cols-1 gap-4 md:gap-6">
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
@@ -96,7 +92,7 @@ export default function PendingTasksBox() {
                 Pending Expenses
               </h4>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Needed admin approval
+                Awaiting admin approval
               </p>
             </div>
           </div>
@@ -135,14 +131,16 @@ export default function PendingTasksBox() {
                     {expense.amount ?? "-"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleApprove(expense.id)}>
-                    Approve
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleReject(expense.id)}>
-                    Reject
-                  </Button>
-                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => handleApprove(expense.id)}>
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleReject(expense.id)}>
+                      Reject
+                    </Button>
+                  </div>
+                )}
               </li>
             ))
           )}
