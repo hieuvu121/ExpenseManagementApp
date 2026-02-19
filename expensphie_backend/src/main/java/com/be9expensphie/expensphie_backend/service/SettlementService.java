@@ -311,6 +311,7 @@ public class SettlementService {
                     .toMember(receiver)
                     .expenseSplitDetails(splitDetails)
                     .amount(splitDetails.getAmount())
+                    .date(expense.getDate())
                     .currency(expense.getCurrency())
                     .status(SettlementStatus.PENDING)
                     .build();
