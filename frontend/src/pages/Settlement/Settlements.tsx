@@ -49,9 +49,11 @@ export default function Settlements() {
   const [awaitingApprovals, setAwaitingApprovals] = useState<Settlement[]>([]);
   const [pendingPeriod, setPendingPeriod] = useState<PendingPeriod>("current");
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState<number | null>(null);
   const [isApproving, setIsApproving] = useState<number | null>(null);
+  const [showAllSettlements, setShowAllSettlements] = useState(true);
 
   const memberId = useMemo(() => getStoredNumber("memberId"), []);
   const householdId = useMemo(() => getStoredNumber("activeHouseholdId"), []);
@@ -65,6 +67,7 @@ export default function Settlements() {
 
     setIsLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const [settlementList, statsData, lastThreeStatsData] = await Promise.all([
@@ -96,9 +99,11 @@ export default function Settlements() {
 
     setIsToggling(settlementId);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       await settlementAPI.toggleSettlementStatus(settlementId, memberId);
+      setSuccessMessage("Settlement status updated successfully.");
       await loadSettlements();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status.");
@@ -115,9 +120,11 @@ export default function Settlements() {
 
     setIsApproving(settlementId);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       await settlementAPI.approveSettlement(settlementId, memberId);
+      setSuccessMessage("Settlement approved successfully.");
       await loadSettlements();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve settlement.");
@@ -134,9 +141,11 @@ export default function Settlements() {
 
     setIsApproving(settlementId);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       await settlementAPI.rejectSettlement(settlementId, memberId);
+      setSuccessMessage("Settlement rejected successfully.");
       await loadSettlements();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reject settlement.");
@@ -159,6 +168,12 @@ export default function Settlements() {
       {error && (
         <div className="mb-6 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-600 dark:border-success-500/40 dark:bg-success-500/10 dark:text-success-400">
+          {successMessage}
         </div>
       )}
 
@@ -334,7 +349,7 @@ export default function Settlements() {
       </div>
 
       <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
               All Settlements
@@ -343,78 +358,89 @@ export default function Settlements() {
               Toggle status between pending and completed.
             </p>
           </div>
-          {isLoading && (
-            <span className="text-sm text-gray-400">Loading...</span>
-          )}
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAllSettlements((prev) => !prev)}
+            >
+              {showAllSettlements ? "Hide all" : "Show all"}
+            </Button>
+            {isLoading && (
+              <span className="text-sm text-gray-400">Loading...</span>
+            )}
+          </div>
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="min-w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-gray-200 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                <th className="px-3 py-2 font-medium">ID</th>
-                <th className="px-3 py-2 font-medium">Amount</th>
-                <th className="px-3 py-2 font-medium">To</th>
-                <th className="px-3 py-2 font-medium">Category</th>
-                <th className="px-3 py-2 font-medium">Date</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {settlements.length === 0 && !isLoading ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400"
-                  >
-                    No settlements found.
-                  </td>
+        {showAllSettlements && (
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b border-gray-200 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                  <th className="px-3 py-2 font-medium">ID</th>
+                  <th className="px-3 py-2 font-medium">Amount</th>
+                  <th className="px-3 py-2 font-medium">To</th>
+                  <th className="px-3 py-2 font-medium">Category</th>
+                  <th className="px-3 py-2 font-medium">Date</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Action</th>
                 </tr>
-              ) : (
-                settlements.map((settlement) => (
-                  <tr
-                    key={settlement.id}
-                    className="border-b border-gray-100 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300"
-                  >
-                    <td className="px-3 py-3">#{settlement.id}</td>
-                    <td className="px-3 py-3">
-                      {formatAmount(settlement.amount, settlement.currency)}
-                    </td>
-                    <td className="px-3 py-3">
-                      {formatOptional(settlement.toMemberName)}
-                    </td>
-                    <td className="px-3 py-3">
-                      {formatOptional(settlement.expenseCategory)}
-                    </td>
-                    <td className="px-3 py-3">
-                      {settlement.date ?? "-"}
-                    </td>
-                    <td className="px-3 py-3">
-                      <Badge color={statusBadgeColor(settlement.status)}>
-                        {settlement.status}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-3">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleToggleStatus(settlement.id)}
-                        disabled={isToggling === settlement.id || settlement.status === "COMPLETED"}
-                      >
-                        {settlement.status === "PENDING"
-                          ? "Request approval"
-                          : settlement.status === "AWAITING_APPROVAL"
-                            ? "Cancel request"
-                            : "Completed"}
-                      </Button>
+              </thead>
+              <tbody>
+                {settlements.length === 0 && !isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400"
+                    >
+                      No settlements found.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  settlements.map((settlement) => (
+                    <tr
+                      key={settlement.id}
+                      className="border-b border-gray-100 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300"
+                    >
+                      <td className="px-3 py-3">#{settlement.id}</td>
+                      <td className="px-3 py-3">
+                        {formatAmount(settlement.amount, settlement.currency)}
+                      </td>
+                      <td className="px-3 py-3">
+                        {formatOptional(settlement.toMemberName)}
+                      </td>
+                      <td className="px-3 py-3">
+                        {formatOptional(settlement.expenseCategory)}
+                      </td>
+                      <td className="px-3 py-3">
+                        {settlement.date ?? "-"}
+                      </td>
+                      <td className="px-3 py-3">
+                        <Badge color={statusBadgeColor(settlement.status)}>
+                          {settlement.status}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleToggleStatus(settlement.id)}
+                          disabled={isToggling === settlement.id || settlement.status === "COMPLETED"}
+                        >
+                          {settlement.status === "PENDING"
+                            ? "Request approval"
+                            : settlement.status === "AWAITING_APPROVAL"
+                              ? "Cancel request"
+                              : "Completed"}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </>
   );
