@@ -1,9 +1,12 @@
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
-import ChartTab from "../common/ChartTab";
+import ChartTab, { type ChartTabValue } from "../common/ChartTab";
 
 interface StatisticsChartProps {
   series: { name: string; data: number[] }[];
+  selectedRange: ChartTabValue;
+  onRangeChange: (value: ChartTabValue) => void;
+  categories: string[];
   isLoading?: boolean;
   error?: string | null;
   isEmpty?: boolean;
@@ -11,6 +14,9 @@ interface StatisticsChartProps {
 
 export default function StatisticsChart({
   series,
+  selectedRange,
+  onRangeChange,
+  categories,
   isLoading = false,
   error = null,
   isEmpty = false,
@@ -73,7 +79,7 @@ export default function StatisticsChart({
     },
     xaxis: {
       type: "category", // Category-based x-axis
-      categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      categories,
       axisBorder: {
         show: false, // Hide x-axis border
       },
@@ -112,7 +118,7 @@ export default function StatisticsChart({
           </p>
         </div>
         <div className="flex items-start w-full gap-3 sm:justify-end">
-          <ChartTab />
+          <ChartTab selected={selectedRange} onChange={onRangeChange} />
         </div>
       </div>
 

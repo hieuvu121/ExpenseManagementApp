@@ -20,6 +20,9 @@ interface MemberDTO {
   role: string;
 }
 
+type ExpenseStatus = "PENDING" | "APPROVED" | "REJECTED";
+type ExpenseRange = "DAILY" | "WEEKLY" | "MONTHLY";
+
 export const householdAPI = {
   /**
    * Get all households for current user
@@ -74,6 +77,23 @@ export const householdAPI = {
    */
   getHouseholdExpenses: async (householdId: number | string) => {
     const response = await apiRequest(`/households/${householdId}/expenses`);
+    return response.json();
+  },
+
+  getHouseholdExpensesByStatus: async (
+    householdId: number | string,
+    status: ExpenseStatus,
+  ) => {
+    const response = await apiRequest(`/households/${householdId}/expenses?status=${status}`);
+    return response.json();
+  },
+
+  getExpenseByPeriod: async (
+    householdId: number | string,
+    range: ExpenseRange,
+    status: ExpenseStatus,
+  ) => {
+    const response = await apiRequest(`/households/${householdId}/expenses/${range}/${status}`);
     return response.json();
   },
 

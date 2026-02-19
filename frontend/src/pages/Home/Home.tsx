@@ -8,13 +8,24 @@ import JoinGroupModal from "../../components/household/JoinGroupModal";
 import CreateGroupModal from "../../components/household/CreateGroupModal";
 import { useHousehold } from "../../context/HouseholdContext";
 import { householdAPI } from "../../services/householdApi";
+import type { ChartTabValue } from "../../components/common/ChartTab";
+
+const DAILY_CATEGORIES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKLY_CATEGORIES = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6", "Week 7", "Week 8"];
+const MONTHLY_CATEGORIES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 
 export default function Home() {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { households, activeHousehold } = useHousehold();
-  const [expenses, setExpenses] = useState<(RecentExpenseItem & { status?: string | null })[]>([]);
+  const [recentExpenses, setRecentExpenses] = useState<RecentExpenseItem[]>([]);
+  const [dailyTotals, setDailyTotals] = useState<number[]>(Array.from({ length: 7 }, () => 0));
+  const [dailyApprovedTotals, setDailyApprovedTotals] = useState<number[]>(Array.from({ length: 7 }, () => 0));
+  const [statisticsRange, setStatisticsRange] = useState<ChartTabValue>("DAILY");
+  const [statisticsCategories, setStatisticsCategories] = useState<string[]>(DAILY_CATEGORIES);
+  const [statisticsTotals, setStatisticsTotals] = useState<number[]>(Array.from({ length: 7 }, () => 0));
+  const [statisticsApprovedTotals, setStatisticsApprovedTotals] = useState<number[]>(Array.from({ length: 7 }, () => 0));
   const [isExpensesLoading, setIsExpensesLoading] = useState(false);
   const [expensesError, setExpensesError] = useState<string | null>(null);
 
@@ -24,9 +35,132 @@ export default function Home() {
     return Number.isNaN(parsed) ? 0 : parsed;
   }, []);
 
+  const toDailySeries = useCallback(
+    (expenseItems: RecentExpenseItem[]) => {
+      const totals = Array.from({ length: 7 }, () => 0);
+      expenseItems.forEach((expense) => {
+        if (!expense.date) return;
+        const expenseDate = new Date(expense.date);
+        if (Number.isNaN(expenseDate.getTime())) return;
+        const weekIndex = (expenseDate.getDay() + 6) % 7;
+        totals[weekIndex] += parseAmount(expense.amount);
+      });
+      return totals;
+    },
+    [parseAmount],
+  );
+
+  const mergeDailySeries = useCallback((...series: number[][]) => {
+    const merged = Array.from({ length: 7 }, () => 0);
+    series.forEach((data) => {
+      data.forEach((value, index) => {
+        merged[index] += value;
+      });
+    });
+    return merged;
+  }, []);
+
+  const toWeeklySeries = useCallback(
+    (expenseItems: RecentExpenseItem[]) => {
+      const totals = Array.from({ length: 8 }, () => 0);
+      const now = new Date();
+      const day = now.getDay();
+      const diffToMonday = (day + 6) % 7;
+      const currentWeekStart = new Date(now);
+      currentWeekStart.setHours(0, 0, 0, 0);
+      currentWeekStart.setDate(now.getDate() - diffToMonday);
+
+      const earliestWeekStart = new Date(currentWeekStart);
+      earliestWeekStart.setDate(currentWeekStart.getDate() - 7 * 7);
+
+      expenseItems.forEach((expense) => {
+        if (!expense.date) return;
+        const expenseDate = new Date(expense.date);
+        if (Number.isNaN(expenseDate.getTime())) return;
+        if (expenseDate < earliestWeekStart) return;
+
+        const expenseWeekStart = new Date(expenseDate);
+        expenseWeekStart.setHours(0, 0, 0, 0);
+        expenseWeekStart.setDate(expenseDate.getDate() - ((expenseDate.getDay() + 6) % 7));
+
+        const diffMs = expenseWeekStart.getTime() - earliestWeekStart.getTime();
+        const index = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+        if (index < 0 || index > 7) return;
+
+        totals[index] += parseAmount(expense.amount);
+      });
+
+      return totals;
+    },
+    [parseAmount],
+  );
+
+  const toMonthlySeries = useCallback(
+    (expenseItems: RecentExpenseItem[]) => {
+      const totals = Array.from({ length: 12 }, () => 0);
+      const currentYear = new Date().getFullYear();
+
+      expenseItems.forEach((expense) => {
+        if (!expense.date) return;
+        const expenseDate = new Date(expense.date);
+        if (Number.isNaN(expenseDate.getTime())) return;
+        if (expenseDate.getFullYear() !== currentYear) return;
+
+        const monthIndex = expenseDate.getMonth();
+        totals[monthIndex] += parseAmount(expense.amount);
+      });
+
+      return totals;
+    },
+    [parseAmount],
+  );
+
+  const buildStatisticsSeries = useCallback(
+    (
+      allExpenses: RecentExpenseItem[],
+      approvedExpenses: RecentExpenseItem[],
+      dailyApprovedExpenses: RecentExpenseItem[],
+      dailyPendingExpenses: RecentExpenseItem[],
+      dailyRejectedExpenses: RecentExpenseItem[],
+      weeklyApprovedExpenses: RecentExpenseItem[],
+      weeklyPendingExpenses: RecentExpenseItem[],
+      weeklyRejectedExpenses: RecentExpenseItem[],
+    ) => {
+      if (statisticsRange === "WEEKLY") {
+        const weeklyApproved = toWeeklySeries(weeklyApprovedExpenses);
+        const weeklyPending = toWeeklySeries(weeklyPendingExpenses);
+        const weeklyRejected = toWeeklySeries(weeklyRejectedExpenses);
+        setStatisticsCategories(WEEKLY_CATEGORIES);
+        setStatisticsTotals(mergeDailySeries(weeklyApproved, weeklyPending, weeklyRejected));
+        setStatisticsApprovedTotals(weeklyApproved);
+        return;
+      }
+
+      if (statisticsRange === "MONTHLY") {
+        setStatisticsCategories(MONTHLY_CATEGORIES);
+        setStatisticsTotals(toMonthlySeries(allExpenses));
+        setStatisticsApprovedTotals(toMonthlySeries(approvedExpenses));
+        return;
+      }
+
+      const dailyApproved = toDailySeries(dailyApprovedExpenses);
+      const dailyPending = toDailySeries(dailyPendingExpenses);
+      const dailyRejected = toDailySeries(dailyRejectedExpenses);
+
+      setStatisticsCategories(DAILY_CATEGORIES);
+      setStatisticsTotals(mergeDailySeries(dailyApproved, dailyPending, dailyRejected));
+      setStatisticsApprovedTotals(dailyApproved);
+    },
+    [statisticsRange, toDailySeries, toWeeklySeries, toMonthlySeries, mergeDailySeries],
+  );
+
   const loadExpenses = useCallback(async () => {
     if (!activeHousehold?.id) {
-      setExpenses([]);
+      setRecentExpenses([]);
+      setDailyTotals(Array.from({ length: 7 }, () => 0));
+      setDailyApprovedTotals(Array.from({ length: 7 }, () => 0));
+      setStatisticsTotals(Array.from({ length: 7 }, () => 0));
+      setStatisticsApprovedTotals(Array.from({ length: 7 }, () => 0));
       return;
     }
 
@@ -34,103 +168,81 @@ export default function Home() {
     setExpensesError(null);
 
     try {
-      const data = (await householdAPI.getHouseholdExpenses(activeHousehold.id)) as (RecentExpenseItem & {
-        status?: string | null;
-      })[];
-      setExpenses(data || []);
+      const [
+        allExpenses,
+        approvedExpenses,
+        approvedDailyExpenses,
+        pendingDailyExpenses,
+        rejectedDailyExpenses,
+        approvedWeeklyExpenses,
+        pendingWeeklyExpenses,
+        rejectedWeeklyExpenses,
+      ] =
+        (await Promise.all([
+          householdAPI.getHouseholdExpenses(activeHousehold.id),
+          householdAPI.getHouseholdExpensesByStatus(activeHousehold.id, "APPROVED"),
+          householdAPI.getExpenseByPeriod(activeHousehold.id, "DAILY", "APPROVED"),
+          householdAPI.getExpenseByPeriod(activeHousehold.id, "DAILY", "PENDING"),
+          householdAPI.getExpenseByPeriod(activeHousehold.id, "DAILY", "REJECTED"),
+          householdAPI.getExpenseByPeriod(activeHousehold.id, "WEEKLY", "APPROVED"),
+          householdAPI.getExpenseByPeriod(activeHousehold.id, "WEEKLY", "PENDING"),
+          householdAPI.getExpenseByPeriod(activeHousehold.id, "WEEKLY", "REJECTED"),
+        ])) as [
+          RecentExpenseItem[],
+          RecentExpenseItem[],
+          RecentExpenseItem[],
+          RecentExpenseItem[],
+          RecentExpenseItem[],
+          RecentExpenseItem[],
+          RecentExpenseItem[],
+          RecentExpenseItem[],
+        ];
+
+      const sortedRecent = [...(approvedExpenses || [])].sort((a, b) => {
+        const aDate = a.date ? new Date(a.date).getTime() : 0;
+        const bDate = b.date ? new Date(b.date).getTime() : 0;
+        return bDate - aDate;
+      });
+
+      setRecentExpenses(sortedRecent.slice(0, 5));
+
+      const approvedSeries = toDailySeries(approvedDailyExpenses || []);
+      const pendingSeries = toDailySeries(pendingDailyExpenses || []);
+      const rejectedSeries = toDailySeries(rejectedDailyExpenses || []);
+
+      setDailyApprovedTotals(approvedSeries);
+      setDailyTotals(mergeDailySeries(approvedSeries, pendingSeries, rejectedSeries));
+
+      buildStatisticsSeries(
+        allExpenses || [],
+        approvedExpenses || [],
+        approvedDailyExpenses || [],
+        pendingDailyExpenses || [],
+        rejectedDailyExpenses || [],
+        approvedWeeklyExpenses || [],
+        pendingWeeklyExpenses || [],
+        rejectedWeeklyExpenses || [],
+      );
     } catch (err) {
       setExpensesError(err instanceof Error ? err.message : "Failed to load expenses.");
     } finally {
       setIsExpensesLoading(false);
     }
-  }, [activeHousehold?.id]);
+  }, [activeHousehold?.id, toDailySeries, mergeDailySeries, buildStatisticsSeries]);
 
   useEffect(() => {
     loadExpenses();
   }, [loadExpenses]);
 
-  const recentExpenses = useMemo(() => {
-    const sorted = [...expenses].sort((a, b) => {
-      const aDate = a.date ? new Date(a.date).getTime() : 0;
-      const bDate = b.date ? new Date(b.date).getTime() : 0;
-      return bDate - aDate;
-    });
-    return sorted.slice(0, 5);
-  }, [expenses, parseAmount]);
+  const dailyChartEmpty = useMemo(
+    () => dailyTotals.every((value) => value === 0) && dailyApprovedTotals.every((value) => value === 0),
+    [dailyTotals, dailyApprovedTotals],
+  );
 
-  const monthlyTotals = useMemo(() => {
-    const totals = Array.from({ length: 12 }, () => 0);
-    expenses.forEach((expense) => {
-      if (!expense.date) return;
-      const month = new Date(expense.date).getMonth();
-      if (Number.isNaN(month) || month < 0 || month > 11) return;
-      totals[month] += parseAmount(expense.amount);
-    });
-    return totals;
-  }, [expenses, parseAmount]);
-
-  const dailyTotals = useMemo(() => {
-    const totals = Array.from({ length: 7 }, () => 0);
-    const now = new Date();
-    const day = now.getDay();
-    const diffToMonday = (day + 6) % 7;
-    const startOfWeek = new Date(now);
-    startOfWeek.setHours(0, 0, 0, 0);
-    startOfWeek.setDate(now.getDate() - diffToMonday);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-
-    expenses.forEach((expense) => {
-      if (!expense.date) return;
-      const expenseDate = new Date(expense.date);
-      if (Number.isNaN(expenseDate.getTime())) return;
-      if (expenseDate < startOfWeek || expenseDate > endOfWeek) return;
-      const weekIndex = (expenseDate.getDay() + 6) % 7;
-      totals[weekIndex] += parseAmount(expense.amount);
-    });
-
-    return totals;
-  }, [expenses, parseAmount]);
-
-  const dailyApprovedTotals = useMemo(() => {
-    const totals = Array.from({ length: 7 }, () => 0);
-    const now = new Date();
-    const day = now.getDay();
-    const diffToMonday = (day + 6) % 7;
-    const startOfWeek = new Date(now);
-    startOfWeek.setHours(0, 0, 0, 0);
-    startOfWeek.setDate(now.getDate() - diffToMonday);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-
-    expenses.forEach((expense) => {
-      if (!expense.date) return;
-      if (expense.status !== "APPROVED") return;
-      const expenseDate = new Date(expense.date);
-      if (Number.isNaN(expenseDate.getTime())) return;
-      if (expenseDate < startOfWeek || expenseDate > endOfWeek) return;
-      const weekIndex = (expenseDate.getDay() + 6) % 7;
-      totals[weekIndex] += parseAmount(expense.amount);
-    });
-
-    return totals;
-  }, [expenses, parseAmount]);
-
-  const monthlyApprovedTotals = useMemo(() => {
-    const totals = Array.from({ length: 12 }, () => 0);
-    expenses.forEach((expense) => {
-      if (!expense.date) return;
-      if (expense.status !== "APPROVED") return;
-      const month = new Date(expense.date).getMonth();
-      if (Number.isNaN(month) || month < 0 || month > 11) return;
-      totals[month] += parseAmount(expense.amount);
-    });
-    return totals;
-  }, [expenses]);
-
-  const chartsEmpty = expenses.length === 0;
+  const statisticsChartEmpty = useMemo(
+    () => statisticsTotals.every((value) => value === 0) && statisticsApprovedTotals.every((value) => value === 0),
+    [statisticsTotals, statisticsApprovedTotals],
+  );
 
   // If user has no households after loading is complete, redirect to onboarding
  
@@ -182,7 +294,7 @@ export default function Home() {
             data={dailyTotals}
             isLoading={isExpensesLoading}
             error={expensesError}
-            isEmpty={chartsEmpty}
+            isEmpty={dailyChartEmpty}
           />
         </div>
 
@@ -197,12 +309,15 @@ export default function Home() {
         <div className="col-span-12">
           <StatisticsChart
             series={[
-              { name: "Total", data: dailyTotals },
-              { name: "Approved", data: dailyApprovedTotals },
+              { name: "Total", data: statisticsTotals },
+              { name: "Approved", data: statisticsApprovedTotals },
             ]}
+            selectedRange={statisticsRange}
+            onRangeChange={setStatisticsRange}
+            categories={statisticsCategories}
             isLoading={isExpensesLoading}
             error={expensesError}
-            isEmpty={chartsEmpty}
+            isEmpty={statisticsChartEmpty}
           />
         </div>
       </div>
