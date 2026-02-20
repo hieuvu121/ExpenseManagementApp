@@ -53,7 +53,7 @@ export default function Settlements() {
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState<number | null>(null);
   const [isApproving, setIsApproving] = useState<number | null>(null);
-  const [showAllSettlements, setShowAllSettlements] = useState(true);
+  const [showAllSettlements, setShowAllSettlements] = useState(false);
 
   const memberId = useMemo(() => getStoredNumber("memberId"), []);
   const householdId = useMemo(() => getStoredNumber("activeHouseholdId"), []);
@@ -355,7 +355,7 @@ export default function Settlements() {
               All Settlements
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Toggle status between pending and completed.
+              See all your settlements and their statuses. You can also toggle status for each settlement.
             </p>
           </div>
           <div className="flex items-center gap-3">
