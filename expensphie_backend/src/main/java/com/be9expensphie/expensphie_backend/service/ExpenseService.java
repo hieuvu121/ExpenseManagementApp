@@ -1,5 +1,7 @@
 package com.be9expensphie.expensphie_backend.service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -8,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
 import com.be9expensphie.expensphie_backend.enums.HouseholdRole;
+import com.be9expensphie.expensphie_backend.enums.TimeRange;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseRequestDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseResponseDTO;
 import com.be9expensphie.expensphie_backend.dto.SplitDTO.SplitRequestDTO;
@@ -100,23 +103,30 @@ public class ExpenseService {
 				.createdBy(expense.getCreated_by().getUser().getFullName())
 				.build();
 	}
-
-	public List<CreateExpenseResponseDTO> getExpense(Long householdId) {
-		UserEntity currentUser = userService.getCurrentUser();
-		// find household and check if user in this household
-		Household household = householdRepo.findById(householdId)
-				.orElseThrow(() -> new RuntimeException("Household not found"));
-
+	
+	//get all expense or approved
+	public List<CreateExpenseResponseDTO> getExpense(Long householdId,ExpenseStatus status) {
+		UserEntity currentUser=userService.getCurrentUser();
+		List<ExpenseEntity> expenses;
+		//find household and check if user in this household
+		Household household=householdRepo.findById(householdId)
+				.orElseThrow(()->new RuntimeException("Household not found"));
+		
 		HouseholdMember member = householdMemberRepo.findByUserAndHousehold(currentUser, household)
-				.orElseThrow(() -> new RuntimeException("User not in household"));
-
-		// query entity and return dto response
-		List<ExpenseEntity> expenses = expenseRepo.findByHousehold(household);
+	            .orElseThrow(() -> new RuntimeException("User not in household"));
+		
+		//query entity and return dto response
+		if(status==null) {
+			expenses=expenseRepo.findByHousehold(household);
+		}else {
+			expenses=expenseRepo.findApprovedHousehold(householdId, status);
+		}
 		return expenses.stream()
 				.map(this::toDTO)
 				.toList();
 	}
-
+	
+	
 	public CreateExpenseResponseDTO getSingleExpense(Long householdId, Long expenseId) {
 		UserEntity currentUser = userService.getCurrentUser();
 
@@ -196,6 +206,42 @@ public class ExpenseService {
 	public void rejectExpense(Long householdId, Long expenseId) {
 		checkAdmin(householdId);
 		ExpenseEntity expense = findExpense(householdId, expenseId);
-		expenseRepo.delete(expense);
+		if(expense.getStatus()!=ExpenseStatus.PENDING) {
+			throw new RuntimeException("Only Pending expense can be rollback"); 
+		}
+		expense.setStatus(ExpenseStatus.REJECTED);
+		expenseRepo.save(expense);
+	}
+	
+	//filter query
+	public List<CreateExpenseResponseDTO> getExpenseByPeriod(ExpenseStatus status,Long householdId,TimeRange range){
+		LocalDate now=LocalDate.now();	
+		LocalDate start;
+		LocalDate end;
+		
+		switch(range) {
+		case DAILY:
+			start=now.with(DayOfWeek.MONDAY);
+			end=start.plusWeeks(1);
+			break;
+		case WEEKLY:
+			start=now.minusWeeks(8).with(DayOfWeek.MONDAY);
+			end=now.plusDays(1);
+			break;
+		case MONTHLY:
+			start=now.withDayOfMonth(1);
+			end=start.plusMonths(1);
+			break;
+		default:
+			throw new RuntimeException("Invalid range of time");
+		}
+		List<ExpenseEntity> expenses = expenseRepo.findExpenseInRange(
+				householdId, 
+				status, 
+				start, 
+				end);
+		return expenses.stream()
+				.map(this::toDTO)
+				.toList();
 	}
 }

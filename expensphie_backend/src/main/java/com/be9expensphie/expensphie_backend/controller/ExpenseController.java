@@ -9,12 +9,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseRequestDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseResponseDTO;
+import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
+import com.be9expensphie.expensphie_backend.enums.TimeRange;
 import com.be9expensphie.expensphie_backend.service.ExpenseService;
 
 import jakarta.validation.Valid;
@@ -37,11 +40,12 @@ public class ExpenseController {
 	}
 	
 	//get all expense 
-	@GetMapping
+	@GetMapping()
 	public ResponseEntity<List<CreateExpenseResponseDTO>> getExpenses(
-			@PathVariable Long householdId
+			@PathVariable Long householdId,
+			@RequestParam(required=false) ExpenseStatus status
 			){
-		List<CreateExpenseResponseDTO> expenses=expenseService.getExpense(householdId);
+		List<CreateExpenseResponseDTO> expenses=expenseService.getExpense(householdId,status);
 		return ResponseEntity.ok(expenses);
 	}
 	
@@ -84,7 +88,17 @@ public class ExpenseController {
             ){
         expenseService.rejectExpense(householdId, expenseId);
         return ResponseEntity.noContent().build();
-    }
+	}
 	
-
+	//get filter range
+	@GetMapping("/{range}/{status}")
+	public ResponseEntity<List<CreateExpenseResponseDTO>> getRangeExpense(
+			@PathVariable Long householdId,
+			@PathVariable TimeRange range,
+			@PathVariable ExpenseStatus status
+			){
+		List<CreateExpenseResponseDTO> response=expenseService.getExpenseByPeriod(status, householdId,range);
+		return ResponseEntity.ok(response);
+	}
 }
+	

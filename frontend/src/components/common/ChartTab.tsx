@@ -1,11 +1,12 @@
-import { useState } from "react";
+export type ChartTabValue = "DAILY" | "WEEKLY" | "MONTHLY";
 
-const ChartTab: React.FC = () => {
-  const [selected, setSelected] = useState<
-    "optionOne" | "optionTwo" | "optionThree"
-  >("optionOne");
+interface ChartTabProps {
+  selected: ChartTabValue;
+  onChange: (value: ChartTabValue) => void;
+}
 
-  const getButtonClass = (option: "optionOne" | "optionTwo" | "optionThree") =>
+const ChartTab: React.FC<ChartTabProps> = ({ selected, onChange }) => {
+  const getButtonClass = (option: ChartTabValue) =>
     selected === option
       ? "shadow-theme-xs text-gray-900 dark:text-white bg-white dark:bg-gray-800"
       : "text-gray-500 dark:text-gray-400";
@@ -13,30 +14,30 @@ const ChartTab: React.FC = () => {
   return (
     <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900">
       <button
-        onClick={() => setSelected("optionOne")}
+        onClick={() => onChange("DAILY")}
         className={`px-3 py-2 font-medium w-full rounded-md text-theme-sm hover:text-gray-900   dark:hover:text-white ${getButtonClass(
-          "optionOne"
+          "DAILY"
+        )}`}
+      >
+        Daily
+      </button>
+
+      <button
+        onClick={() => onChange("WEEKLY")}
+        className={`px-3 py-2 font-medium w-full rounded-md text-theme-sm hover:text-gray-900   dark:hover:text-white ${getButtonClass(
+          "WEEKLY"
+        )}`}
+      >
+        Weekly
+      </button>
+
+      <button
+        onClick={() => onChange("MONTHLY")}
+        className={`px-3 py-2 font-medium w-full rounded-md text-theme-sm hover:text-gray-900   dark:hover:text-white ${getButtonClass(
+          "MONTHLY"
         )}`}
       >
         Monthly
-      </button>
-
-      <button
-        onClick={() => setSelected("optionTwo")}
-        className={`px-3 py-2 font-medium w-full rounded-md text-theme-sm hover:text-gray-900   dark:hover:text-white ${getButtonClass(
-          "optionTwo"
-        )}`}
-      >
-        Quarterly
-      </button>
-
-      <button
-        onClick={() => setSelected("optionThree")}
-        className={`px-3 py-2 font-medium w-full rounded-md text-theme-sm hover:text-gray-900   dark:hover:text-white ${getButtonClass(
-          "optionThree"
-        )}`}
-      >
-        Annually
       </button>
     </div>
   );
