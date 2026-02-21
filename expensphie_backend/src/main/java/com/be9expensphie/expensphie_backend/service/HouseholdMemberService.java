@@ -25,11 +25,11 @@ public class HouseholdMemberService {
 		List<HouseholdMember> members=memberRepo.findByHouseholdId(householdId);
 		return members.stream()
 				.map(m->new MemberDTO(
-						m.getUser().getId(),
+						m.getId(),
 						m.getUser().getFullName(),
 						m.getRole()	
 						))
-				.toList();	
+				.toList();
 	}
 
 }

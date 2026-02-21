@@ -94,7 +94,7 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
       return [...prev, household];
     });
-    
+
     // Set the newly joined household as active
     // Use the exact object (to include role) returned by backend when possible
     setActiveHouseholdState(household);
@@ -108,6 +108,7 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
     setActiveHousehold(null);
     localStorage.removeItem("activeHouseholdId");
     localStorage.removeItem("memberId");
+    localStorage.removeItem("memberRole");
   };
 
   // Load households on mount and when authentication changes
@@ -127,12 +128,16 @@ export const HouseholdProvider: React.FC<{ children: ReactNode }> = ({ children 
     if (activeHousehold) {
       localStorage.setItem("activeHouseholdId", activeHousehold.id.toString());
       console.log("Saved activeHouseholdId to localStorage:", activeHousehold.id);
-      
+
       if (activeHousehold.memberId) {
         localStorage.setItem("memberId", activeHousehold.memberId.toString());
         console.log("Saved memberId to localStorage:", activeHousehold.memberId);
       } else {
         console.warn("No memberId in activeHousehold:", activeHousehold);
+      }
+
+      if (activeHousehold.role) {
+        localStorage.setItem("memberRole", activeHousehold.role);
       }
     }
   }, [activeHousehold]);
