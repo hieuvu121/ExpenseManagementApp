@@ -100,5 +100,16 @@ public class ExpenseController {
 		List<CreateExpenseResponseDTO> response=expenseService.getExpenseByPeriod(status, householdId,range);
 		return ResponseEntity.ok(response);
 	}
+	
+	//ai create expense
+	@PostMapping("/ai")
+	public ResponseEntity<CreateExpenseResponseDTO> createExpenseAi(
+			@PathVariable Long householdId,
+			@RequestBody String paragraph
+			){
+		CreateExpenseResponseDTO response=
+				expenseService.createExpenseAI(householdId, paragraph);
+		return ResponseEntity.ok(response);
+	}
 }
 	

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ import com.be9expensphie.expensphie_backend.repository.ExpenseRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdMemberRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdRepository;
 import com.be9expensphie.expensphie_backend.security.HouseholdSecurity;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,9 @@ public class ExpenseService {
 	private final HouseholdMemberRepository householdMemberRepo;
 	private final HouseholdSecurity householdSecurity;
 	private final SettlementService settlementService;
+	private final AiService aiService;
+	@Autowired
+	private final ObjectMapper mapper;
 
 	@Transactional
 	public CreateExpenseResponseDTO createExpense(Long householdId, CreateExpenseRequestDTO createRequest) {
@@ -244,4 +249,40 @@ public class ExpenseService {
 				.map(this::toDTO)
 				.toList();
 	}
+	
+	//create expense with ai
+	public CreateExpenseResponseDTO createExpenseAI(Long householdId, String paragraph) {
+		String prompt=buildPrompt(paragraph);
+		String aiResponse=aiService.chat(prompt);
+		System.out.println("AI response"+aiResponse);		
+		try {
+			//use mapper to map response to dto
+			CreateExpenseRequestDTO request=
+					mapper.readValue(aiResponse, CreateExpenseRequestDTO.class);
+			return createExpense(householdId,request);
+		}catch(Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException("Failed to parse"+paragraph);
+		}
+	}
+	
+	private String buildPrompt(String paragraph) {
+		return """ 
+				extract information from the paragraph below.
+				return ONLY valis JSON in this format
+				{
+				  "amount": number,
+				  "date": "yyyy-MM-dd",
+				  "category": "string",
+				  "method": "EQUAL|AMOUNT",
+				  "currency: "AUD|USD|VND"
+				  "splits": [
+				    { "memberId": number, "amount": number },
+					....
+				  ]
+				}
+				"""+paragraph;
+	}
+	
+	
 }

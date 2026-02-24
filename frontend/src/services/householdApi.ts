@@ -72,6 +72,17 @@ export const householdAPI = {
     });
     return response.json();
   },
+
+  /**
+   * Create a new expense from an AI paragraph prompt
+   */
+  createExpenseWithAI: async (householdId: number | string, paragraph: string) => {
+    const response = await apiRequest(`/households/${householdId}/expenses/ai`, {
+      method: "POST",
+      body: JSON.stringify(paragraph),
+    });
+    return response.json();
+  },
   /**
    * Get all expenses for a household
    */

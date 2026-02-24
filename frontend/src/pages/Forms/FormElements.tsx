@@ -10,7 +10,6 @@ import MultiSelect from "../../components/form/MultiSelect";
 import Radio from "../../components/form/input/Radio";
 import TextArea from "../../components/form/input/TextArea";
 
-import DropzoneComponent from "../../components/form/form-elements/DropZone";
 import { useHousehold } from "../../context/HouseholdContext";
 import { householdAPI } from "../../services/householdApi";
 
@@ -99,6 +98,7 @@ export default function AddExpense() {
   const [participants, setParticipants] = useState<string[]>([]);
   const [splitMethod, setSplitMethod] = useState<SplitMethod>("EQUAL");
   const [note, setNote] = useState("");
+  const [expenseParagraph, setExpenseParagraph] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -227,6 +227,40 @@ export default function AddExpense() {
       setIsLoading(false);
     }
   }
+
+  const handleAutoGenerateExpense = async () => {
+    if (!activeHousehold?.id) {
+      setErrorMessage("No active household selected");
+      return;
+    }
+
+    if (!expenseParagraph.trim()) {
+      setErrorMessage("Please enter an expense paragraph");
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
+
+    try {
+      const response = await householdAPI.createExpenseWithAI(
+        activeHousehold.id,
+        expenseParagraph.trim()
+      );
+
+      setSuccessMessage(`AI expense created successfully! ID: ${response.id}`);
+      setExpenseParagraph("");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to auto-generate expense";
+      setErrorMessage(errorMsg);
+      console.error("AI create expense error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -413,8 +447,27 @@ export default function AddExpense() {
 
         {/* RIGHT: Optional */}
         <div className="space-y-6">
-          <ComponentCard title="Receipt Upload">
-            <DropzoneComponent />
+          <ComponentCard title="Auto Generate Expense">
+            <div className="space-y-4">
+              <div>
+                <Label>Expense Paragraph</Label>
+                <TextArea
+                  value={expenseParagraph}
+                  onChange={(v) => setExpenseParagraph(v)}
+                  rows={6}
+                  placeholder="Example: Yesterday we spent 120 AUD on groceries and split equally between member 12 and member 14."
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAutoGenerateExpense}
+                disabled={isLoading || !expenseParagraph.trim() || !activeHousehold}
+                className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-theme-xs hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isLoading ? "Generating..." : "Generate & Create Expense"}
+              </button>
+            </div>
           </ComponentCard>
 
           <ComponentCard title="Notes (Optional)">
@@ -447,6 +500,7 @@ export default function AddExpense() {
                   setSplitMethod("EQUAL");
                   setSplitValues({});
                   setNote("");
+                  setExpenseParagraph("");
                   setErrorMessage(null);
                   setSuccessMessage(null);
                 }}
