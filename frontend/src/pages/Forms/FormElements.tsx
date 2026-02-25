@@ -102,6 +102,7 @@ export default function AddExpense() {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorAiResponse, setErrorAiResponse] = useState<string | null>(null);
 
   // Dynamic split values theo participant
   const [splitValues, setSplitValues] = useState<Record<string, number>>({});
@@ -177,6 +178,7 @@ export default function AddExpense() {
     if (!canSubmit) return;
 
     setErrorMessage(null);
+    setErrorAiResponse(null);
     setSuccessMessage(null);
     setIsLoading(true);
 
@@ -231,15 +233,18 @@ export default function AddExpense() {
   const handleAutoGenerateExpense = async () => {
     if (!activeHousehold?.id) {
       setErrorMessage("No active household selected");
+      setErrorAiResponse(null);
       return;
     }
 
     if (!expenseParagraph.trim()) {
       setErrorMessage("Please enter an expense paragraph");
+      setErrorAiResponse(null);
       return;
     }
 
     setErrorMessage(null);
+    setErrorAiResponse(null);
     setSuccessMessage(null);
     setIsLoading(true);
 
@@ -249,13 +254,19 @@ export default function AddExpense() {
         expenseParagraph.trim()
       );
 
-      setSuccessMessage(`AI expense created successfully! ID: ${response.id}`);
+      setSuccessMessage(`Expense created successfully! ID: ${response.id}`);
       setExpenseParagraph("");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error) {
+      const apiError = error as Error & { aiResponse?: string };
       const errorMsg =
         error instanceof Error ? error.message : "Failed to auto-generate expense";
       setErrorMessage(errorMsg);
+      setErrorAiResponse(
+        typeof apiError.aiResponse === "string" && apiError.aiResponse.trim()
+          ? apiError.aiResponse
+          : null
+      );
       console.error("AI create expense error:", error);
     } finally {
       setIsLoading(false);
@@ -269,6 +280,19 @@ export default function AddExpense() {
         description="Create a new expense"
       />
       <PageBreadcrumb pageTitle="Add Expense" />
+
+      {successMessage && (
+        <div className="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+          {errorMessage}
+          {errorAiResponse ? ` ${errorAiResponse}` : ""}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* LEFT: Core info */}
@@ -502,6 +526,7 @@ export default function AddExpense() {
                   setNote("");
                   setExpenseParagraph("");
                   setErrorMessage(null);
+                  setErrorAiResponse(null);
                   setSuccessMessage(null);
                 }}
                 className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-white/[0.03]"
@@ -509,20 +534,6 @@ export default function AddExpense() {
                 Reset
               </button>
             </div>
-
-            {/* Success Message */}
-            {successMessage && (
-              <div className="mt-4 rounded-lg bg-green-50 p-4 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
-                {successMessage}
-              </div>
-            )}
-
-            {/* Error Message */}
-            {errorMessage && (
-              <div className="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-                {errorMessage}
-              </div>
-            )}
           </ComponentCard>
         </div>
       </div>

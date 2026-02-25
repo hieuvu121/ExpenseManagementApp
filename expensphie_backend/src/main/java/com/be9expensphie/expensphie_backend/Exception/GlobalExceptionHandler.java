@@ -9,6 +9,14 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(AiExpenseParseException.class)
+    public ResponseEntity<?> handleAiExpenseParse(AiExpenseParseException e) {
+        return ResponseEntity.badRequest().body(Map.of(
+            "message", e.getMessage(),
+            "aiResponse", e.getAiResponse()
+        ));
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<?> handleRuntime(RuntimeException e) {
         return ResponseEntity.badRequest().body(Map.of(

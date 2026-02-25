@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
 import com.be9expensphie.expensphie_backend.enums.HouseholdRole;
 import com.be9expensphie.expensphie_backend.enums.TimeRange;
+import com.be9expensphie.expensphie_backend.Exception.AiExpenseParseException;
+import com.be9expensphie.expensphie_backend.dto.MemberDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseRequestDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseResponseDTO;
 import com.be9expensphie.expensphie_backend.dto.SplitDTO.SplitRequestDTO;
@@ -38,6 +40,7 @@ public class ExpenseService {
 	private final HouseholdMemberRepository householdMemberRepo;
 	private final HouseholdSecurity householdSecurity;
 	private final SettlementService settlementService;
+	private final HouseholdMemberService householdMemberService;
 	private final AiService aiService;
 	@Autowired
 	private final ObjectMapper mapper;
@@ -252,8 +255,13 @@ public class ExpenseService {
 	
 	//create expense with ai
 	public CreateExpenseResponseDTO createExpenseAI(Long householdId, String paragraph) {
-		String prompt=buildPrompt(paragraph);
+		//send all member id for splits
+		List<MemberDTO> member=householdMemberService.getMembers(householdId);
+		
+		String prompt=buildPrompt(paragraph,member);
 		String aiResponse=aiService.chat(prompt);
+		
+		//check response ai for debug
 		System.out.println("AI response"+aiResponse);		
 		try {
 			//use mapper to map response to dto
@@ -261,20 +269,29 @@ public class ExpenseService {
 					mapper.readValue(aiResponse, CreateExpenseRequestDTO.class);
 			return createExpense(householdId,request);
 		}catch(Exception e) {
-			e.printStackTrace();
-			throw new RuntimeException("Failed to parse"+paragraph);
+			throw new AiExpenseParseException("Fail to input data:",aiResponse);
 		}
 	}
 	
-	private String buildPrompt(String paragraph) {
-		return """ 
+	private String buildPrompt(String paragraph,List<MemberDTO> member) {
+				return 
+				"""
+				according to this memberList: 
+				"""+member+
+				""" 
 				extract information from the paragraph below.
 				return ONLY valis JSON in this format
+				Do not include markdown.
+				Do not wrap in ```json.
+				If the paragraph didnt provide information about these attributes: amount,category,method and split(who paid what),
+				You are NOT allowed to assume or infer missing information If missing->
+				return a short paragraph include attributes that needed for more information
+				(Ex:Please provide information for category/splits,...)
 				{
-				  "amount": number,
-				  "date": "yyyy-MM-dd",
-				  "category": "string",
-				  "method": "EQUAL|AMOUNT",
+				  "amount": number type,
+				  "date": "yyyy-MM-dd"(current date default),
+				  "category": "string type"(write in enum format:ELECTRICITY/FOOD/...),
+				  "method": "EQUAL|AMOUNT" (EQUAL:bills split equally, AMOUNT: bills splits customized)
 				  "currency: "AUD|USD|VND"
 				  "splits": [
 				    { "memberId": number, "amount": number },

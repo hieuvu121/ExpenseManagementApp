@@ -57,7 +57,9 @@ export const apiRequest = async (
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(errorData.message || `API request failed: ${response.statusText}`);
+    const apiError = new Error(errorData.message || `API request failed: ${response.statusText}`) as Error & Record<string, unknown>;
+    Object.assign(apiError, errorData);
+    throw apiError;
   }
 
   return response;
