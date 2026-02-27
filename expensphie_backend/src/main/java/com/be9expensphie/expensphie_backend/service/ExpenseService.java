@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,7 @@ import com.be9expensphie.expensphie_backend.repository.ExpenseRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdMemberRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdRepository;
 import com.be9expensphie.expensphie_backend.security.HouseholdSecurity;
+import com.be9expensphie.expensphie_backend.validation.ExpenseValidation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -41,6 +43,7 @@ public class ExpenseService {
 	private final HouseholdSecurity householdSecurity;
 	private final SettlementService settlementService;
 	private final HouseholdMemberService householdMemberService;
+	private final ExpenseValidation expenseValidation;
 	private final AiService aiService;
 	@Autowired
 	private final ObjectMapper mapper;
@@ -61,6 +64,9 @@ public class ExpenseService {
 		if (memberOptional.isEmpty()) {
 			throw new RuntimeException("User is not in this household");
 		}
+		
+		expenseValidation.validateExpense(createRequest, householdId);
+		
 		HouseholdMember member = memberOptional.get();
 
 		// get role for permissions
@@ -263,6 +269,7 @@ public class ExpenseService {
 		
 		//check response ai for debug
 		System.out.println("AI response"+aiResponse);		
+		
 		try {
 			//use mapper to map response to dto
 			CreateExpenseRequestDTO request=
@@ -274,7 +281,12 @@ public class ExpenseService {
 	}
 	
 	private String buildPrompt(String paragraph,List<MemberDTO> member) {
+		String today = LocalDate.now()
+		        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
 				return 
+				"""
+				today is(format: dd/mm/yyyy)""" + today +	
 				"""
 				according to this memberList: 
 				"""+member+
@@ -285,11 +297,11 @@ public class ExpenseService {
 				Do not wrap in ```json.
 				If the paragraph didnt provide information about these attributes: amount,category,method and split(who paid what),
 				You are NOT allowed to assume or infer missing information If missing->
-				return a short paragraph include attributes that needed for more information
+				return a short paragraph include attributes that needed for more information or leave that field blank
 				(Ex:Please provide information for category/splits,...)
 				{
 				  "amount": number type,
-				  "date": "yyyy-MM-dd"(current date default),
+				  "date": "yyyy-MM-dd"(set today is local date),
 				  "category": "string type"(write in enum format:ELECTRICITY/FOOD/...),
 				  "method": "EQUAL|AMOUNT" (EQUAL:bills split equally, AMOUNT: bills splits customized)
 				  "currency: "AUD|USD|VND"
