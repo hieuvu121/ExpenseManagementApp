@@ -245,8 +245,8 @@ public class ExpenseService {
 				.toList();
 	}
 
-	public List<CreateExpenseResponseDTO> getExpenseLastMonth() {
-		List<ExpenseEntity> expenses = expenseRepo.findExpenseInLastMonth();
+	public List<CreateExpenseResponseDTO> getExpenseLastMonth(Long householdId) {
+		List<ExpenseEntity> expenses = expenseRepo.findExpenseInLastMonth(householdId);
 		return expenses.stream()
 				.map(this::toDTO)
 				.toList();

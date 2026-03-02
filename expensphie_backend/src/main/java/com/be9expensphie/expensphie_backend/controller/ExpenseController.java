@@ -105,7 +105,7 @@ public class ExpenseController {
 	public ResponseEntity<List<CreateExpenseResponseDTO>> getLastMonthExpense(
 			@PathVariable Long householdId
 			){
-		List<CreateExpenseResponseDTO> response=expenseService.getExpenseLastMonth();
+		List<CreateExpenseResponseDTO> response=expenseService.getExpenseLastMonth(householdId);
 		return ResponseEntity.ok(response);
 	}
 }
