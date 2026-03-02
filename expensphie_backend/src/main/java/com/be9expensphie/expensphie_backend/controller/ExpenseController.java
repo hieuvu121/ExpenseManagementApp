@@ -100,5 +100,13 @@ public class ExpenseController {
 		List<CreateExpenseResponseDTO> response=expenseService.getExpenseByPeriod(status, householdId,range);
 		return ResponseEntity.ok(response);
 	}
+
+	@GetMapping("/last-month") // currently for testing, could no longer need this endpoint
+	public ResponseEntity<List<CreateExpenseResponseDTO>> getLastMonthExpense(
+			@PathVariable Long householdId
+			){
+		List<CreateExpenseResponseDTO> response=expenseService.getExpenseLastMonth();
+		return ResponseEntity.ok(response);
+	}
 }
 	
