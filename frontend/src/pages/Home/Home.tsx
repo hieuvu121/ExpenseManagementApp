@@ -3,6 +3,7 @@ import PendingExpense from "../../components/displayBox/PendingExpense";
 import MonthlyExpenseChart from "../../components/displayBox/MonthlyExpenseChart";
 import StatisticsChart from "../../components/displayBox/StatisticsChart";
 import RecentExpense, { type RecentExpenseItem } from "../../components/displayBox/RecentExpense";
+import AISuggestions from "../../components/displayBox/AISuggestions";
 import PageMeta from "../../components/common/PageMeta";
 import JoinGroupModal from "../../components/household/JoinGroupModal";
 import CreateGroupModal from "../../components/household/CreateGroupModal";
@@ -245,7 +246,7 @@ export default function Home() {
   );
 
   // If user has no households after loading is complete, redirect to onboarding
- 
+
 
 
   // Show loading state while fetching households
@@ -257,7 +258,7 @@ export default function Home() {
         title="React.js Expense Dashboard | TailAdmin - React.js Admin Dashboard Template"
         description="This is React.js Expense Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
       />
-      
+
       {/* Header Section with Join Group Button and Create Group Button */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -320,6 +321,12 @@ export default function Home() {
             isEmpty={statisticsChartEmpty}
           />
         </div>
+
+        {activeHousehold?.id && (
+          <div className="col-span-12">
+            <AISuggestions householdId={activeHousehold.id} />
+          </div>
+        )}
       </div>
 
       {/* Join Group Modal */}

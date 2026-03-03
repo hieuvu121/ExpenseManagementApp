@@ -39,7 +39,7 @@ public class GeminiService {
                     expense.getDate()));
         }
 
-        prompt.append("\nPlease provide:\n")
+        prompt.append("\nPlease provide (in a friendly language and keep it concise):\n")
                 .append("1. Spending pattern analysis\n")
                 .append("2. Cost-saving suggestions\n")
                 .append("3. Budget recommendations\n");
