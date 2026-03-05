@@ -7,16 +7,21 @@ import com.be9expensphie.expensphie_backend.dto.SplitDTO.SplitRequestDTO;
 import com.be9expensphie.expensphie_backend.enums.Method;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.Builder;
 import lombok.Data;
 
 @Data
+@Builder
 public class CreateExpenseRequestDTO {
     @NotNull
     private BigDecimal amount;
     private LocalDate date;
     @NotBlank
     private String category;
+    private String description;
     private Method method;
     private String currency;
     private List<SplitRequestDTO> splits;
+
+
 }

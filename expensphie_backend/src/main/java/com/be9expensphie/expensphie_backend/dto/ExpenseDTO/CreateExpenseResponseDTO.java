@@ -17,6 +17,7 @@ public class CreateExpenseResponseDTO {
     private BigDecimal amount;
     private LocalDate date;
     private String category;
+    private String description;
     private ExpenseStatus status;
     private Method method;
     private String currency;

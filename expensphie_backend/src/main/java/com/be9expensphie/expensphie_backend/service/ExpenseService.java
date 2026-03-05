@@ -28,6 +28,7 @@ import com.be9expensphie.expensphie_backend.repository.HouseholdMemberRepository
 import com.be9expensphie.expensphie_backend.repository.HouseholdRepository;
 import com.be9expensphie.expensphie_backend.security.HouseholdSecurity;
 import com.be9expensphie.expensphie_backend.validation.ExpenseValidation;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -77,6 +78,7 @@ public class ExpenseService {
 		ExpenseEntity expense = ExpenseEntity.builder()
 				.amount(createRequest.getAmount())
 				.category(createRequest.getCategory())
+				.description(createRequest.getDescription())
 				.created_by(member)
 				.method(createRequest.getMethod())
 				.status(status)
@@ -110,6 +112,7 @@ public class ExpenseService {
 				.id(expense.getId())
 				.amount(expense.getAmount())
 				.category(expense.getCategory())
+				.description(expense.getDescription())
 				.status(expense.getStatus())
 				.date(expense.getDate())
 				.method(expense.getMethod())
@@ -160,11 +163,42 @@ public class ExpenseService {
 				.id(expense.getId())
 				.amount(expense.getAmount())
 				.category(expense.getCategory())
+				.description(expense.getDescription())
 				.date(expense.getDate())
 				.status(expense.getStatus())
 				.method(expense.getMethod())
 				.currency(expense.getCurrency())
 				.build();
+	}
+
+	public CreateExpenseResponseDTO updateExpense(Long householdId, Long expenseId,CreateExpenseRequestDTO request){
+		Household household = householdRepo.findById(householdId)
+				.orElseThrow(() -> new RuntimeException("No household found"));
+
+		ExpenseEntity expense=expenseRepo.findByIdAndHousehold(expenseId,household)
+				.orElseThrow(()-> new RuntimeException("Expense not found"));
+
+		if(request.getAmount()!=null){
+			expense.setAmount(request.getAmount());
+		}
+		if(request.getMethod()!=null){
+			expense.setMethod(request.getMethod());
+		}
+		if(request.getDate()!=null){
+			expense.setDate(request.getDate());
+		}
+		if(request.getCurrency()!=null){
+			expense.setCurrency(request.getCurrency());
+		}
+		if(request.getDescription()!=null){
+			expense.setDescription(request.getDescription());
+		}
+		if(request.getCategory()!=null){
+			expense.setCategory(request.getCategory());
+		}
+
+		ExpenseEntity savedExpense=expenseRepo.save(expense);
+		return toDTO(savedExpense);
 	}
 
 	// helper
@@ -199,29 +233,13 @@ public class ExpenseService {
 		return toDTO(expense);
 	}
 
-	// rollback
-	@Transactional
-	public CreateExpenseResponseDTO rollback(Long householdId, Long expenseId) {
-		checkAdmin(householdId);
-		ExpenseEntity expense = findExpense(householdId, expenseId);
-
-		if (expense.getStatus() != ExpenseStatus.APPROVED) {
-			throw new RuntimeException("Only Approved expense can be rollback");
-		}
-
-		expense.setStatus(ExpenseStatus.PENDING);
-		expenseRepo.save(expense);
-
-		return toDTO(expense);
-	}
-
 	// reject
 	@Transactional
 	public void rejectExpense(Long householdId, Long expenseId) {
 		checkAdmin(householdId);
 		ExpenseEntity expense = findExpense(householdId, expenseId);
 		if(expense.getStatus()!=ExpenseStatus.PENDING) {
-			throw new RuntimeException("Only Pending expense can be rollback"); 
+			throw new RuntimeException("Only pending expense can be rejected"); 
 		}
 		expense.setStatus(ExpenseStatus.REJECTED);
 		expenseRepo.save(expense);
@@ -260,6 +278,7 @@ public class ExpenseService {
 	}
 	
 	//create expense with ai
+	@Transactional
 	public CreateExpenseResponseDTO createExpenseAI(Long householdId, String paragraph) {
 		//send all member id for splits
 		List<MemberDTO> member=householdMemberService.getMembers(householdId);
@@ -275,8 +294,8 @@ public class ExpenseService {
 			CreateExpenseRequestDTO request=
 					mapper.readValue(aiResponse, CreateExpenseRequestDTO.class);
 			return createExpense(householdId,request);
-		}catch(Exception e) {
-			throw new AiExpenseParseException("Fail to input data:",aiResponse);
+		}catch(JsonProcessingException e) {
+			throw new AiExpenseParseException("Please check make sure to fill all required category!");
 		}
 	}
 	
@@ -292,18 +311,18 @@ public class ExpenseService {
 				"""+member+
 				""" 
 				extract information from the paragraph below.
-				return ONLY valis JSON in this format
+				return ONLY valid JSON in this format
 				Do not include markdown.
 				Do not wrap in ```json.
 				If the paragraph didnt provide information about these attributes: amount,category,method and split(who paid what),
-				You are NOT allowed to assume or infer missing information If missing->
-				return a short paragraph include attributes that needed for more information or leave that field blank
-				(Ex:Please provide information for category/splits,...)
+				You are NOT allowed to assume or add any missing information.
+				If missing any information just LEAVE IT BLANK
 				{
 				  "amount": number type,
 				  "date": "yyyy-MM-dd"(set today is local date),
-				  "category": "string type"(write in enum format:ELECTRICITY/FOOD/...),
-				  "method": "EQUAL|AMOUNT" (EQUAL:bills split equally, AMOUNT: bills splits customized)
+				  "category": "string type"(write in enum format:ELECTRICITY/FOOD/...->NOT NULL),
+				  "description": "string type"(description for that expense,if not mention, LEAVE BLANK),
+				  "method": "EQUAL|AMOUNT" (EQUAL:bills split equally, AMOUNT: bills splits customized->NOT NULL)
 				  "currency: "AUD|USD|VND"
 				  "splits": [
 				    { "memberId": number, "amount": number },

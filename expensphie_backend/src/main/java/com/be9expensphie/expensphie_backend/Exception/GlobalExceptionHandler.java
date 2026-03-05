@@ -12,8 +12,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AiExpenseParseException.class)
     public ResponseEntity<?> handleAiExpenseParse(AiExpenseParseException e) {
         return ResponseEntity.badRequest().body(Map.of(
-            "message", e.getMessage(),
-            "aiResponse", e.getAiResponse()
+            "message", e.getMessage()
         ));
     }
 

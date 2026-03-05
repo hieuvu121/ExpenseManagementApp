@@ -193,6 +193,7 @@ export default function AddExpense() {
         amount: amountNumber,
         date,
         category,
+        description: title.trim(),
         method: splitMethod,
         currency,
         splits,
