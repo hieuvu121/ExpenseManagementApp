@@ -27,11 +27,11 @@ public class ExpenseValidation {
 	        throw new RuntimeException("Amount must be greater than 0");
 	    }
 		
-		if(request.getCategory()==null) {
+		if(request.getCategory()==null||request.getCategory().isBlank()) {
 			throw new RuntimeException("Category must be filled");
 		}
 		
-		if(request.getCurrency()==null) {
+		if(request.getCurrency()==null||request.getCurrency().isBlank()) {
 			throw new RuntimeException("Currency must be filled");
 		}
 		
