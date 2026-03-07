@@ -47,6 +47,8 @@ public class ExpenseEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable=false)
 	private ExpenseStatus status;
+	@Column(nullable = true)
+	private String description;
 	
 	@Enumerated(EnumType.STRING)
 	@Column(nullable=false)

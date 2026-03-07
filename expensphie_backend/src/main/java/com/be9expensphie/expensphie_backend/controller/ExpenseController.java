@@ -68,17 +68,17 @@ public class ExpenseController {
 			){
 		return ResponseEntity.ok(expenseService.acceptExpense(householdId, expenseId));
 	}
-	
-	//rollback expense
-	@PatchMapping("/{expenseId}/rollback")
+
+	//update expense
+	@PatchMapping("{expenseId}/update")
 	@PreAuthorize("@householdSecurity.isAdmin(#householdId)")
-	public ResponseEntity<?> rollbackExpense(
-			@PathVariable Long householdId,
-			@PathVariable Long expenseId
-			){
-		return ResponseEntity.ok(expenseService.rollback(householdId,expenseId));
+	public ResponseEntity<?> updateExpense(
+		@PathVariable Long expenseId,
+		@PathVariable Long householdId,
+		@Valid @RequestBody CreateExpenseRequestDTO request
+	){
+		return ResponseEntity.ok(expenseService.updateExpense(householdId,expenseId,request));
 	}
-	
 	//delete
 	@DeleteMapping("/{expenseId}/reject")
     @PreAuthorize("@householdSecurity.isAdmin(#householdId)")
@@ -106,6 +106,17 @@ public class ExpenseController {
 			@PathVariable Long householdId
 			){
 		List<CreateExpenseResponseDTO> response=expenseService.getExpenseLastMonth(householdId);
+		return ResponseEntity.ok(response);
+	}
+	
+	//ai create expense
+	@PostMapping("/ai")
+	public ResponseEntity<CreateExpenseResponseDTO> createExpenseAi(
+			@PathVariable Long householdId,
+			@RequestBody String paragraph
+			){
+		CreateExpenseResponseDTO response=
+				expenseService.createExpenseAI(householdId, paragraph);
 		return ResponseEntity.ok(response);
 	}
 }

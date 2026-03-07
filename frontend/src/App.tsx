@@ -14,6 +14,7 @@ import BarChart from "./pages/Charts/BarChart";
 import Calendar from "./pages/Calendar";
 import BasicTables from "./pages/ExpenseList/ExpenseList";
 import FormElements from "./pages/Forms/FormElements";
+import EditExpense from "./pages/Forms/EditExpense";
 import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import MinimalLayout from "./layout/MinimalLayout";
@@ -44,6 +45,7 @@ export default function App() {
 
             {/* Forms */}
             <Route path="form-elements" element={<FormElements />} />
+            <Route path="edit-expense" element={<EditExpense />} />
 
             {/* Tables */}
             <Route path="basic-tables" element={<BasicTables />} />
