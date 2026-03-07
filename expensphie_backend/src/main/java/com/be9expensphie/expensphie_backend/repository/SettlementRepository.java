@@ -15,7 +15,6 @@ import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
 import com.be9expensphie.expensphie_backend.entity.ExpenseSplitDetailsEntity;
 
 public interface SettlementRepository extends JpaRepository<SettlementEntity, Long> {
-
     @Query("select s from SettlementEntity s where s.fromMember = :member and s.expenseSplitDetails.expense.status = :status order by s.date desc")
     List<SettlementEntity> findByMemberAndExpenseStatus(@Param("member") HouseholdMember member,
             @Param("status") ExpenseStatus status);

@@ -185,5 +185,5 @@ export default {
       },
     },
   },
-  plugins: [require("@tailwindcss/forms"), require("autoprefixer")],
+  plugins: [require("@tailwindcss/forms"), require("@tailwindcss/typography"), require("autoprefixer")],
 };

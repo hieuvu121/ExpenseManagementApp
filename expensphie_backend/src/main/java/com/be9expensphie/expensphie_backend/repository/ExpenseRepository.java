@@ -43,4 +43,6 @@ public interface ExpenseRepository extends JpaRepository<ExpenseEntity,Long>{
 			@Param("end") LocalDate end
 			);
 	
+	@Query(value = "SELECT * FROM expense e WHERE e.household_id = :householdId AND e.status = 'APPROVED' AND e.date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)", nativeQuery = true)
+	List<ExpenseEntity> findExpenseInLastMonth(@Param("householdId") Long householdId);
 }

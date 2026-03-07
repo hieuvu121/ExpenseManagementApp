@@ -137,4 +137,12 @@ export const householdAPI = {
     }
     return response.json();
   },
+
+  /**
+   * Get AI-generated expense suggestions for a household
+   */
+  getExpenseSuggestions: async (householdId: number | string): Promise<string> => {
+    const response = await apiRequest(`/households/${householdId}/suggestions`);
+    return response.text();
+  },
 };
