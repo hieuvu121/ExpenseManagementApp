@@ -9,6 +9,7 @@ interface CreateExpenseRequestDTO {
   amount: number;
   date: string;
   category: string;
+  description?: string;
   currency: string;
   method: string;
   splits: SplitRequestDTO[];
@@ -72,6 +73,29 @@ export const householdAPI = {
     });
     return response.json();
   },
+
+  updateExpense: async (
+    householdId: number | string,
+    expenseId: number | string,
+    expenseData: CreateExpenseRequestDTO,
+  ) => {
+    const response = await apiRequest(`/households/${householdId}/expenses/${expenseId}/update`, {
+      method: "PATCH",
+      body: JSON.stringify(expenseData),
+    });
+    return response.json();
+  },
+
+  /**
+   * Create a new expense from an AI paragraph prompt
+   */
+  createExpenseWithAI: async (householdId: number | string, paragraph: string) => {
+    const response = await apiRequest(`/households/${householdId}/expenses/ai`, {
+      method: "POST",
+      body: JSON.stringify(paragraph),
+    });
+    return response.json();
+  },
   /**
    * Get all expenses for a household
    */
@@ -99,13 +123,6 @@ export const householdAPI = {
 
   approveExpense: async (householdId: number | string, expenseId: number | string) => {
     const response = await apiRequest(`/households/${householdId}/expenses/${expenseId}/approve`, {
-      method: "PATCH",
-    });
-    return response.json();
-  },
-
-  rollbackExpense: async (householdId: number | string, expenseId: number | string) => {
-    const response = await apiRequest(`/households/${householdId}/expenses/${expenseId}/rollback`, {
       method: "PATCH",
     });
     return response.json();

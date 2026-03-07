@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.repository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -44,4 +45,6 @@ public interface SettlementRepository extends JpaRepository<SettlementEntity, Lo
     List<SettlementEntity> findByToMemberAndStatus(HouseholdMember member, SettlementStatus status);
 
     boolean existsByExpenseSplitDetails(ExpenseSplitDetailsEntity expenseSplitDetails);
+
+    Optional<SettlementEntity> findByExpenseSplitDetails(ExpenseSplitDetailsEntity expenseSplitDetails);
 }
