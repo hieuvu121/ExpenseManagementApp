@@ -198,6 +198,7 @@ public class ExpenseService {
 
 
 		//check with each split if exist->use that, if not-> create
+		if(request.getSplits()!=null && !request.getSplits().isEmpty()) {
 		for (ExpenseSplitDetailsEntity split : request.getSplits().stream()
 				.map(splitRequest -> {
 					HouseholdMember member = householdMemberRepo.findById(splitRequest.getMemberId())
@@ -216,7 +217,7 @@ public class ExpenseService {
 						return existSplit;
 					}
 				}).toList()) {
-			if(expense.getSplitDetails()==null) {
+			if(split.getId()==null) {
 				expense.getSplitDetails().add(split);
 			}
 
@@ -262,6 +263,7 @@ public class ExpenseService {
 
 			}
 		}
+		} // end if splits not null
 
 		ExpenseEntity savedExpense=expenseRepo.save(expense);
 		return toDTO(savedExpense);
