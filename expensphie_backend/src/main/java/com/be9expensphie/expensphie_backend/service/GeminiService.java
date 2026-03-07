@@ -3,6 +3,7 @@ package com.be9expensphie.expensphie_backend.service;
 import java.util.List;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseResponseDTO;
@@ -15,9 +16,9 @@ public class GeminiService {
 
     public GeminiService(ExpenseService expenseService,
             ExpenseRepository expenseRepo,
-            ChatClient.Builder chatClientBuilder) {
+            @Qualifier("geminiChatClient") ChatClient chatClient) {
         this.expenseService = expenseService;
-        this.chatClient = chatClientBuilder.build();
+        this.chatClient = chatClient;
     }
 
     public String getExpenseSuggestions(Long householdId) {
