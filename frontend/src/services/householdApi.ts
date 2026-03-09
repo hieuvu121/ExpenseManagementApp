@@ -21,8 +21,27 @@ interface MemberDTO {
   role: string;
 }
 
+export interface Expense {
+  id: number;
+  title?: string;
+  category?: string;
+  description?: string;
+  status?: string;
+  method?: string;
+  amount?: number | string;
+  date?: string;
+  currency?: string;
+  createdBy?: string;
+}
+
 type ExpenseStatus = "PENDING" | "APPROVED" | "REJECTED";
 type ExpenseRange = "DAILY" | "WEEKLY" | "MONTHLY";
+
+export interface CursorPageResponse<T> {
+  data: T[];
+  nextCursor: number | null;
+  hasMore: boolean;
+}
 
 export const householdAPI = {
   /**
@@ -97,10 +116,17 @@ export const householdAPI = {
     return response.json();
   },
   /**
-   * Get all expenses for a household
+   * Get paginated expenses for a household using cursor-based pagination.
+   * Omit cursor to fetch the first page.
    */
-  getHouseholdExpenses: async (householdId: number | string) => {
-    const response = await apiRequest(`/households/${householdId}/expenses`);
+  getHouseholdExpenses: async (
+    householdId: number | string,
+    limit = 10,
+    cursor?: number | null,
+  ): Promise<CursorPageResponse<Expense>> => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor != null) params.set("cursor", String(cursor));
+    const response = await apiRequest(`/households/${householdId}/expenses?${params}`);
     return response.json();
   },
 
@@ -109,6 +135,17 @@ export const householdAPI = {
     status: ExpenseStatus,
   ) => {
     const response = await apiRequest(`/households/${householdId}/expenses?status=${status}`);
+    return response.json();
+  },
+
+  getPendingExpenses: async (
+    householdId: number | string,
+    limit = 2,
+    cursor?: number | null,
+  ): Promise<CursorPageResponse<Expense>> => {
+    const params = new URLSearchParams({ status: "PENDING", limit: String(limit) });
+    if (cursor != null) params.set("cursor", String(cursor));
+    const response = await apiRequest(`/households/${householdId}/expenses?${params}`);
     return response.json();
   },
 

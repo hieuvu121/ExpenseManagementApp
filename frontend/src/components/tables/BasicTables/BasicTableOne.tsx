@@ -10,28 +10,19 @@ import {
 
 import Badge from "../../ui/badge/Badge";
 import { useHousehold } from "../../../context/HouseholdContext";
-import { householdAPI } from "../../../services/householdApi";
+import { householdAPI, type Expense } from "../../../services/householdApi";
 import Button from "../../ui/button/Button";
 import { Modal } from "../../ui/modal";
-
-interface Expense {
-  id: number;
-  title?: string;
-  category?: string;
-  description?: string;
-  status?: string;
-  method?: string;
-  amount?: number | string;
-  date?: string;
-  currency?: string;
-  createdBy?: string;
-}
 
 export default function BasicTableOne() {
   const { activeHousehold } = useHousehold();
   const navigate = useNavigate();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<(number | null)[]>([null]); // stack of cursors, index 0 = first page
+  const [currentPage, setCurrentPage] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
@@ -39,22 +30,51 @@ export default function BasicTableOne() {
 
   const isAdmin = localStorage.getItem("memberRole") === "ROLE_ADMIN";
 
+  const fetchPage = async (cursor: number | null) => {
+    if (!activeHousehold?.id) return;
+    setLoading(true);
+    try {
+      const result = await householdAPI.getHouseholdExpenses(activeHousehold.id, 10, cursor);
+      setExpenses(result.data ?? []);
+      setNextCursor(result.nextCursor ?? null);
+      setHasMore(result.hasMore ?? false);
+    } catch (err) {
+      console.error("Failed to load expenses:", err);
+      setExpenses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const refreshExpenses = async () => {
     if (!activeHousehold?.id) {
       setExpenses([]);
       return;
     }
+    setCursorHistory([null]);
+    setCurrentPage(0);
+    await fetchPage(null);
+  };
 
-    setLoading(true);
-    try {
-      const expData = await householdAPI.getHouseholdExpenses(activeHousehold.id);
-      setExpenses(expData || []);
-    } catch (err) {
-      console.error("Failed to load household expenses:", err);
-      setExpenses([]);
-    } finally {
-      setLoading(false);
-    }
+  const goToNextPage = async () => {
+    if (!hasMore || nextCursor == null || loading) return;
+    const newPage = currentPage + 1;
+    const cursorToFetch = nextCursor;
+    setCursorHistory((prev) => {
+      const updated = [...prev];
+      updated[newPage] = cursorToFetch;
+      return updated;
+    });
+    setCurrentPage(newPage);
+    setHasMore(false); // optimistically disable Next until response arrives
+    await fetchPage(cursorToFetch);
+  };
+
+  const goToPrevPage = async () => {
+    if (currentPage === 0 || loading) return;
+    const newPage = currentPage - 1;
+    setCurrentPage(newPage);
+    await fetchPage(cursorHistory[newPage] ?? null);
   };
 
   useEffect(() => {
@@ -259,6 +279,30 @@ export default function BasicTableOne() {
               {actionError}
             </div>
           )}
+
+          {hasMore || currentPage > 0 ? (
+            <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-white/[0.05]">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={goToPrevPage}
+                disabled={currentPage === 0 || loading}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Page {currentPage + 1}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={goToNextPage}
+                disabled={!hasMore || loading}
+              >
+                Next
+              </Button>
+            </div>
+          ) : null}
 
           <Modal
             isOpen={isDescriptionModalOpen}
