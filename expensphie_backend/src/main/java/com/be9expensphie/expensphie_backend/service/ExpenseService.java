@@ -1,9 +1,9 @@
 package com.be9expensphie.expensphie_backend.service;
 
 import com.be9expensphie.expensphie_backend.dto.CursorDTO;
+import com.be9expensphie.expensphie_backend.dto.ExpenseEventDTO.CreateExpenseEventDTO;
 import org.springframework.data.domain.Pageable;
 
-import java.awt.*;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -16,6 +16,7 @@ import com.be9expensphie.expensphie_backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -49,6 +50,7 @@ public class ExpenseService {
 	private final AiService aiService;
 	private final ExpenseSplitDetailsRepository expenseSplitDetailsRepo;
 	private final SettlementRepository settlementRepository;
+	private final SimpMessagingTemplate messagingTemplate;
 	@Autowired
 	private final ObjectMapper mapper;
 
@@ -106,7 +108,13 @@ public class ExpenseService {
 		if (savedExpense.getStatus() == ExpenseStatus.APPROVED) {
 			settlementService.createSettlementsForExpense(savedExpense);
 		}
-		return toDTO(savedExpense);
+
+		CreateExpenseResponseDTO response = toDTO(savedExpense);
+		messagingTemplate.convertAndSend(
+				expenseTopic(householdId),
+				new CreateExpenseEventDTO("EXPENSE_CREATED", response, householdId)
+		);
+		return response;
 	}
 
 	// convert entity to dto
@@ -328,7 +336,17 @@ public class ExpenseService {
 		expenseRepo.save(expense);
 		settlementService.createSettlementsForExpense(expense);
 
-		return toDTO(expense);
+		CreateExpenseResponseDTO response = toDTO(expense);
+		messagingTemplate.convertAndSend(
+				expenseTopic(householdId),
+				new CreateExpenseEventDTO("EXPENSE_ACCEPTED", response, householdId)
+		);
+
+		return response;
+	}
+
+	private String expenseTopic(Long householdId) {
+		return "/topic/households/" + householdId + "/expense";
 	}
 
 	// reject
