@@ -358,6 +358,11 @@ public class ExpenseService {
 			throw new RuntimeException("Only pending expense can be rejected");
 		}
 		expense.setStatus(ExpenseStatus.REJECTED);
+
+		messagingTemplate.convertAndSend(
+				expenseTopic(householdId),
+				new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId)
+		);
 		expenseRepo.save(expense);
 	}
 

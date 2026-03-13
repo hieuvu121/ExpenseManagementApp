@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Badge from "../../components/ui/badge/Badge";
 import Button from "../../components/ui/button/Button";
+import { useHousehold } from "../../context/HouseholdContext";
+import { useExpenseEventRefresh } from "../../hooks/useExpenseEventRefresh";
 import { settlementAPI, type Settlement, type SettlementStats } from "../../services/settlementApi";
 
 const getStoredNumber = (key: string): number | null => {
@@ -37,6 +39,7 @@ const statusBadgeColor = (status: string) => {
 type PendingPeriod = "current" | "lastThree";
 
 export default function Settlements() {
+  const { activeHousehold } = useHousehold();
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [currentStats, setCurrentStats] = useState<SettlementStats>({
     pendingSettlements: [],
@@ -55,8 +58,8 @@ export default function Settlements() {
   const [isApproving, setIsApproving] = useState<number | null>(null);
   const [showAllSettlements, setShowAllSettlements] = useState(false);
 
-  const memberId = useMemo(() => getStoredNumber("memberId"), []);
-  const householdId = useMemo(() => getStoredNumber("activeHouseholdId"), []);
+  const memberId = getStoredNumber("memberId");
+  const householdId = activeHousehold?.id ?? getStoredNumber("activeHouseholdId");
 
   const loadSettlements = useCallback(async () => {
     if (!memberId || !householdId) {
@@ -88,8 +91,12 @@ export default function Settlements() {
   }, [memberId, householdId]);
 
   useEffect(() => {
-    loadSettlements();
+    void loadSettlements();
   }, [loadSettlements]);
+
+  useExpenseEventRefresh(() => {
+    void loadSettlements();
+  });
 
   const handleToggleStatus = async (settlementId: number) => {
     if (!memberId) {

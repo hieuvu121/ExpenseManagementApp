@@ -8,6 +8,7 @@ import PageMeta from "../../components/common/PageMeta";
 import JoinGroupModal from "../../components/household/JoinGroupModal";
 import CreateGroupModal from "../../components/household/CreateGroupModal";
 import { useHousehold } from "../../context/HouseholdContext";
+import { useExpenseEventRefresh } from "../../hooks/useExpenseEventRefresh";
 import { householdAPI } from "../../services/householdApi";
 import type { ChartTabValue } from "../../components/common/ChartTab";
 
@@ -231,6 +232,10 @@ export default function Home() {
   useEffect(() => {
     loadExpenses();
   }, [loadExpenses]);
+
+  useExpenseEventRefresh(() => {
+    void loadExpenses();
+  });
 
   const dailyChartEmpty = useMemo(
     () => dailyTotals.every((value) => value === 0) && dailyApprovedTotals.every((value) => value === 0),

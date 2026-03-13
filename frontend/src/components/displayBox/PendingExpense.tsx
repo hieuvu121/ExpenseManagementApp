@@ -3,6 +3,7 @@ import { BoxIconLine } from "../../icons";
 import Badge from "../ui/badge/Badge";
 import Button from "../ui/button/Button";
 import { useHousehold } from "../../context/HouseholdContext";
+import { useExpenseEventRefresh } from "../../hooks/useExpenseEventRefresh";
 import { householdAPI, type Expense } from "../../services/householdApi";
 
 const getStoredRole = () => localStorage.getItem("memberRole");
@@ -39,16 +40,24 @@ export default function PendingTasksBox() {
     }
   }, [activeHousehold?.id]);
 
+  const refreshPendingExpenses = useCallback(() => {
+    nextCursorRef.current = null;
+    hasMoreRef.current = false;
+    void fetchPage(null, true);
+  }, [fetchPage]);
+
   // Initial load / reset when household changes
   useEffect(() => {
     if (!activeHousehold?.id) {
       setPendingExpenses([]);
       return;
     }
-    nextCursorRef.current = null;
-    hasMoreRef.current = false;
-    fetchPage(null, true);
-  }, [activeHousehold?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    refreshPendingExpenses();
+  }, [activeHousehold?.id, refreshPendingExpenses]);
+
+  useExpenseEventRefresh(() => {
+    refreshPendingExpenses();
+  });
 
   // Infinite scroll: observe sentinel relative to the scroll container
   useEffect(() => {
@@ -72,9 +81,7 @@ export default function PendingTasksBox() {
     setError(null);
     try {
       await householdAPI.approveExpense(activeHousehold.id, expenseId);
-      nextCursorRef.current = null;
-      hasMoreRef.current = false;
-      fetchPage(null, true);
+      refreshPendingExpenses();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve expense.");
     }
@@ -85,9 +92,7 @@ export default function PendingTasksBox() {
     setError(null);
     try {
       await householdAPI.rejectExpense(activeHousehold.id, expenseId);
-      nextCursorRef.current = null;
-      hasMoreRef.current = false;
-      fetchPage(null, true);
+      refreshPendingExpenses();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reject expense.");
     }
@@ -173,4 +178,3 @@ export default function PendingTasksBox() {
     </div>
   );
 }
-

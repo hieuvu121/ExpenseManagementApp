@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Table,
@@ -10,6 +10,7 @@ import {
 
 import Badge from "../../ui/badge/Badge";
 import { useHousehold } from "../../../context/HouseholdContext";
+import { useExpenseEventRefresh } from "../../../hooks/useExpenseEventRefresh";
 import { householdAPI, type Expense } from "../../../services/householdApi";
 import Button from "../../ui/button/Button";
 import { Modal } from "../../ui/modal";
@@ -30,7 +31,7 @@ export default function BasicTableOne() {
 
   const isAdmin = localStorage.getItem("memberRole") === "ROLE_ADMIN";
 
-  const fetchPage = async (cursor: number | null) => {
+  const fetchPage = useCallback(async (cursor: number | null) => {
     if (!activeHousehold?.id) return;
     setLoading(true);
     try {
@@ -44,9 +45,9 @@ export default function BasicTableOne() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeHousehold?.id]);
 
-  const refreshExpenses = async () => {
+  const refreshExpenses = useCallback(async () => {
     if (!activeHousehold?.id) {
       setExpenses([]);
       return;
@@ -54,7 +55,7 @@ export default function BasicTableOne() {
     setCursorHistory([null]);
     setCurrentPage(0);
     await fetchPage(null);
-  };
+  }, [activeHousehold?.id, fetchPage]);
 
   const goToNextPage = async () => {
     if (!hasMore || nextCursor == null || loading) return;
@@ -78,8 +79,12 @@ export default function BasicTableOne() {
   };
 
   useEffect(() => {
-    refreshExpenses();
-  }, [activeHousehold?.id]);
+    void refreshExpenses();
+  }, [refreshExpenses]);
+
+  useExpenseEventRefresh(() => {
+    void refreshExpenses();
+  });
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">

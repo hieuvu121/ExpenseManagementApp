@@ -24,10 +24,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         config.setApplicationDestinationPrefixes("/app");
     }
 
-    //endpoint to connect with frontend/if failure, use sockJs
+    // Native WebSocket STOMP endpoint for frontend clients
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry){
-        registry.addEndpoint("/chat").setAllowedOriginPatterns("*").withSockJS();
+        registry.addEndpoint("/chat").setAllowedOriginPatterns("*");
     }
 
     @Override
