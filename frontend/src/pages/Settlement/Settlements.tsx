@@ -56,7 +56,17 @@ export default function Settlements() {
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState<number | null>(null);
   const [isApproving, setIsApproving] = useState<number | null>(null);
-  const [showAllSettlements, setShowAllSettlements] = useState(false);
+
+  // Pagination state for "Pending Settlements" (client-side)
+  const PENDING_PAGE_SIZE = 3;
+  const [pendingPage, setPendingPage] = useState(0);
+
+  // Pagination state for "All Settlements"
+  const [pageIndex, setPageIndex] = useState(0);
+  const [cursorHistory, setCursorHistory] = useState<(number | null)[]>([null]);
+  const [hasMoreSettlements, setHasMoreSettlements] = useState(false);
+  const [nextSettlementCursor, setNextSettlementCursor] = useState<number | null>(null);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
 
   const memberId = getStoredNumber("memberId");
   const householdId = activeHousehold?.id ?? getStoredNumber("activeHouseholdId");
@@ -71,15 +81,20 @@ export default function Settlements() {
     setIsLoading(true);
     setError(null);
     setSuccessMessage(null);
+    // Reset pagination to first page
+    setPageIndex(0);
+    setCursorHistory([null]);
 
     try {
-      const [settlementList, statsData, lastThreeStatsData] = await Promise.all([
-        settlementAPI.getSettlements(memberId, householdId),
+      const [settlementsResult, statsData, lastThreeStatsData] = await Promise.all([
+        settlementAPI.getSettlements(memberId, householdId, null),
         settlementAPI.getCurrentMonthStats(memberId, householdId),
         settlementAPI.getLastThreeMonthsStats(memberId, householdId),
       ]);
       const approvals = await settlementAPI.getAwaitingApprovals(memberId, householdId);
-      setSettlements(settlementList);
+      setSettlements(settlementsResult.data);
+      setHasMoreSettlements(settlementsResult.hasMore);
+      setNextSettlementCursor(settlementsResult.nextCursor);
       setCurrentStats(statsData);
       setLastThreeStats(lastThreeStatsData);
       setAwaitingApprovals(approvals);
@@ -97,6 +112,11 @@ export default function Settlements() {
   useExpenseEventRefresh(() => {
     void loadSettlements();
   });
+
+  // Reset pending page when switching period tabs
+  useEffect(() => {
+    setPendingPage(0);
+  }, [pendingPeriod]);
 
   const handleToggleStatus = async (settlementId: number) => {
     if (!memberId) {
@@ -163,6 +183,49 @@ export default function Settlements() {
 
   const selectedStats =
     pendingPeriod === "current" ? currentStats : lastThreeStats;
+
+  // Pending settlements — client-side pagination
+  const paginatedPendingSettlements = selectedStats.pendingSettlements.slice(
+    pendingPage * PENDING_PAGE_SIZE,
+    (pendingPage + 1) * PENDING_PAGE_SIZE,
+  );
+
+  const handleNextPage = async () => {
+    if (!hasMoreSettlements || !memberId || !householdId || isLoadingPage) return;
+    setIsLoadingPage(true);
+    setError(null);
+    try {
+      const result = await settlementAPI.getSettlements(memberId, householdId, nextSettlementCursor);
+      setSettlements(result.data);
+      setHasMoreSettlements(result.hasMore);
+      setCursorHistory((prev) => [...prev.slice(0, pageIndex + 1), nextSettlementCursor]);
+      setNextSettlementCursor(result.nextCursor);
+      setPageIndex((prev) => prev + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load next page.");
+    } finally {
+      setIsLoadingPage(false);
+    }
+  };
+
+  const handlePrevPage = async () => {
+    if (pageIndex <= 0 || !memberId || !householdId || isLoadingPage) return;
+    const prevIndex = pageIndex - 1;
+    const cursor = cursorHistory[prevIndex];
+    setIsLoadingPage(true);
+    setError(null);
+    try {
+      const result = await settlementAPI.getSettlements(memberId, householdId, cursor);
+      setSettlements(result.data);
+      setHasMoreSettlements(result.hasMore);
+      setNextSettlementCursor(cursorHistory[pageIndex] ?? result.nextCursor);
+      setPageIndex(prevIndex);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load previous page.");
+    } finally {
+      setIsLoadingPage(false);
+    }
+  };
 
   return (
     <>
@@ -245,13 +308,13 @@ export default function Settlements() {
             )}
           </div>
 
-          <div className="mt-5 space-y-3">
-            {selectedStats.pendingSettlements.length === 0 && !isLoading ? (
+          <div className="mt-5 space-y-3 min-h-[calc(3*(5rem+0.75rem))]">
+            {paginatedPendingSettlements.length === 0 && !isLoading ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 No pending settlements found.
               </p>
             ) : (
-              selectedStats.pendingSettlements.map((settlement) => (
+              paginatedPendingSettlements.map((settlement) => (
                 <div
                   key={settlement.id}
                   className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40 sm:flex-row sm:items-center sm:justify-between"
@@ -288,6 +351,31 @@ export default function Settlements() {
               ))
             )}
           </div>
+
+          {/* Pending Settlements Pagination */}
+          {selectedStats.pendingSettlements.length > PENDING_PAGE_SIZE && (
+            <div className="mt-4 flex items-center justify-between">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPendingPage((p) => p - 1)}
+                disabled={pendingPage === 0 || isLoading}
+              >
+                ← Previous
+              </Button>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Page {pendingPage + 1}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPendingPage((p) => p + 1)}
+                disabled={(pendingPage + 1) * PENDING_PAGE_SIZE >= selectedStats.pendingSettlements.length || isLoading}
+              >
+                Next →
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -365,89 +453,101 @@ export default function Settlements() {
               See all your settlements and their statuses. You can also toggle status for each settlement.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowAllSettlements((prev) => !prev)}
-            >
-              {showAllSettlements ? "Hide all" : "Show all"}
-            </Button>
-            {isLoading && (
-              <span className="text-sm text-gray-400">Loading...</span>
-            )}
-          </div>
+          {(isLoading || isLoadingPage) && (
+            <span className="text-sm text-gray-400">Loading...</span>
+          )}
         </div>
 
-        {showAllSettlements && (
-          <div className="mt-5 overflow-x-auto">
-            <table className="min-w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-gray-200 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                  <th className="px-3 py-2 font-medium">ID</th>
-                  <th className="px-3 py-2 font-medium">Amount</th>
-                  <th className="px-3 py-2 font-medium">To</th>
-                  <th className="px-3 py-2 font-medium">Category</th>
-                  <th className="px-3 py-2 font-medium">Date</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">Action</th>
+        <div className="mt-5 overflow-x-auto">
+          <table className="min-w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-gray-200 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                <th className="px-3 py-2 font-medium">ID</th>
+                <th className="px-3 py-2 font-medium">Amount</th>
+                <th className="px-3 py-2 font-medium">To</th>
+                <th className="px-3 py-2 font-medium">Category</th>
+                <th className="px-3 py-2 font-medium">Date</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {settlements.length === 0 && !isLoading && !isLoadingPage ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400"
+                  >
+                    No settlements found.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {settlements.length === 0 && !isLoading ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400"
-                    >
-                      No settlements found.
+              ) : (
+                settlements.map((settlement) => (
+                  <tr
+                    key={settlement.id}
+                    className="border-b border-gray-100 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300"
+                  >
+                    <td className="px-3 py-3">#{settlement.id}</td>
+                    <td className="px-3 py-3">
+                      {formatAmount(settlement.amount, settlement.currency)}
+                    </td>
+                    <td className="px-3 py-3">
+                      {formatOptional(settlement.toMemberName)}
+                    </td>
+                    <td className="px-3 py-3">
+                      {formatOptional(settlement.expenseCategory)}
+                    </td>
+                    <td className="px-3 py-3">
+                      {settlement.date ?? "-"}
+                    </td>
+                    <td className="px-3 py-3">
+                      <Badge color={statusBadgeColor(settlement.status)}>
+                        {settlement.status}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleToggleStatus(settlement.id)}
+                        disabled={isToggling === settlement.id || settlement.status === "COMPLETED"}
+                      >
+                        {settlement.status === "PENDING"
+                          ? "Request approval"
+                          : settlement.status === "AWAITING_APPROVAL"
+                            ? "Cancel request"
+                            : "Completed"}
+                      </Button>
                     </td>
                   </tr>
-                ) : (
-                  settlements.map((settlement) => (
-                    <tr
-                      key={settlement.id}
-                      className="border-b border-gray-100 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300"
-                    >
-                      <td className="px-3 py-3">#{settlement.id}</td>
-                      <td className="px-3 py-3">
-                        {formatAmount(settlement.amount, settlement.currency)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatOptional(settlement.toMemberName)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {formatOptional(settlement.expenseCategory)}
-                      </td>
-                      <td className="px-3 py-3">
-                        {settlement.date ?? "-"}
-                      </td>
-                      <td className="px-3 py-3">
-                        <Badge color={statusBadgeColor(settlement.status)}>
-                          {settlement.status}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleToggleStatus(settlement.id)}
-                          disabled={isToggling === settlement.id || settlement.status === "COMPLETED"}
-                        >
-                          {settlement.status === "PENDING"
-                            ? "Request approval"
-                            : settlement.status === "AWAITING_APPROVAL"
-                              ? "Cancel request"
-                              : "Completed"}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="mt-4 flex items-center justify-between">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handlePrevPage()}
+            disabled={pageIndex === 0 || isLoadingPage || isLoading}
+          >
+            ← Previous
+          </Button>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Page {pageIndex + 1}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleNextPage()}
+            disabled={!hasMoreSettlements || isLoadingPage || isLoading}
+          >
+            Next →
+          </Button>
+        </div>
       </div>
     </>
   );

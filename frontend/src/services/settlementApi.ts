@@ -19,13 +19,36 @@ export interface SettlementStats {
   totalPendingAmount: number | string;
 }
 
+export interface CursorPaginatedResult<T> {
+  data: T[];
+  hasMore: boolean;
+  nextCursor: number | null;
+}
+
 export const settlementAPI = {
-  getSettlements: async (memberId: number, householdId: number) => {
-    const response = await apiRequest(`/settlements/${memberId}/${householdId}`);
+  getSettlements: async (
+    memberId: number,
+    householdId: number,
+    cursor?: number | null,
+    limit = 3,
+  ): Promise<CursorPaginatedResult<Settlement>> => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor != null) params.append("cursor", String(cursor));
+    const response = await apiRequest(
+      `/settlements/${memberId}/${householdId}?${params.toString()}`,
+    );
     const data = (await response.json()) as {
-      settlements?: Settlement[];
+      settlements?: {
+        data?: Settlement[];
+        hasMore?: boolean;
+        nextCursor?: number | null;
+      };
     };
-    return data.settlements ?? [];
+    return {
+      data: data.settlements?.data ?? [],
+      hasMore: data.settlements?.hasMore ?? false,
+      nextCursor: data.settlements?.nextCursor ?? null,
+    };
   },
 
   getCurrentMonthStats: async (memberId: number, householdId: number) => {

@@ -5,11 +5,7 @@ import java.util.NoSuchElementException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.be9expensphie.expensphie_backend.dto.SettlementDTO.SettlementDTO;
 import com.be9expensphie.expensphie_backend.service.SettlementService;
@@ -25,11 +21,14 @@ public class SettlementController {
 
     @GetMapping("/{memberId}/{householdId}")
     public ResponseEntity<?> getSettlementsForCurrentUser(
-            @PathVariable Long memberId, @PathVariable Long householdId) {
+            @PathVariable Long memberId,
+            @PathVariable Long householdId,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "3") int limit) {
         try {
             return ResponseEntity.ok(Map.of(
                 "error", false,
-                "settlements", settlementService.getSettlementsForCurrentUser(memberId, householdId)
+                "settlements", settlementService.getSettlementsForCurrentUser(memberId, householdId,limit,cursor)
             ));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(

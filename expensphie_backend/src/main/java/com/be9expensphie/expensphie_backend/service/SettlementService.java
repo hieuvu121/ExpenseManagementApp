@@ -5,6 +5,10 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
+import com.be9expensphie.expensphie_backend.dto.CursorDTO;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.entity.HouseholdMember;
@@ -34,8 +38,9 @@ public class SettlementService {
     private final HouseholdRepository householdRepository;
 
     @SuppressWarnings("null")
-    public List<SettlementDTO> getSettlementsForCurrentUser(Long memberId, Long householdId) {
+    public CursorDTO<SettlementDTO> getSettlementsForCurrentUser(Long memberId, Long householdId, int limit,Long cursor) {
         try {
+            List<SettlementEntity> settlements;
             UserEntity user = userService.getCurrentUser();
             HouseholdMember householdMember = householdMemberRepository
                     .findByUserAndHousehold(user, householdRepository.findById(householdId)
@@ -46,10 +51,28 @@ public class SettlementService {
                 throw new IllegalArgumentException("Unauthorized access to settlements");
             }
 
-            List<SettlementEntity> settlements = settlementRepository.findByMemberAndExpenseStatus(householdMember,
-                    ExpenseStatus.APPROVED);
+            Pageable pageable= PageRequest.of(0,limit+1, Sort.by("id").descending());
+            if(cursor==null){
+                settlements=settlementRepository.findNextSettlement(Long.MAX_VALUE,householdMember,ExpenseStatus.APPROVED,pageable);
+            }else{
+                settlements=settlementRepository.findNextSettlement(cursor,householdMember,ExpenseStatus.APPROVED,pageable);
+            }
 
-            return settlements.stream().map(this::toDTO).collect(Collectors.toList());
+            boolean hasMore=settlements.size()>limit;
+            if(hasMore){
+                settlements = new java.util.ArrayList<>(settlements.subList(0,limit));
+            }
+
+            Long nextCursor=settlements.isEmpty()?null: settlements.getLast().getId();
+
+            return CursorDTO.<SettlementDTO>builder()
+                    .hasMore(hasMore)
+                    .nextCursor(nextCursor)
+                    .data(
+                            settlements.stream().map(this::toDTO).collect(Collectors.toList())
+                    )
+                    .build();
+
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to get settlement: " + e.getMessage());
         } catch (IllegalArgumentException e) {
