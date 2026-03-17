@@ -8,25 +8,20 @@ import java.util.List;
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
 import com.be9expensphie.expensphie_backend.enums.Method;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "expense")
+@Table(name = "expense",
+	indexes = {
+			@Index(name="idx_created_by_id",columnList ="created_by_id"),
+			@Index(name="idx_expense_list",columnList ="household_id,status,id"),
+			@Index(name="idx_expense_date_range",columnList ="household_id,status,date"),
+			@Index(name="idx_reviewed_by_id",columnList ="reviewed_by_id"),
+	})
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder

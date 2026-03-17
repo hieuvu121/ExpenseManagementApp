@@ -5,19 +5,7 @@ import java.time.LocalDate;
 
 import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,6 +14,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "settlements", uniqueConstraints = {
         @UniqueConstraint(columnNames = { "from_member_id", "to_member_id", "expense_split_details_id" })
+}, indexes={
+        @Index(name="idx_dashboard_query",columnList ="from_member_id,status,date"),
+        @Index(name="idx_settlement_to_member_status",columnList ="to_member_id,status"),
+        @Index(name="idx_settlement_split_details",columnList ="expense_split_details_id"),
 })
 @Data
 @AllArgsConstructor

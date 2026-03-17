@@ -1,5 +1,9 @@
 package com.be9expensphie.expensphie_backend.service;
 
+import com.be9expensphie.expensphie_backend.dto.CursorDTO;
+import com.be9expensphie.expensphie_backend.dto.ExpenseEventDTO.CreateExpenseEventDTO;
+import org.springframework.data.domain.Pageable;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -10,6 +14,9 @@ import com.be9expensphie.expensphie_backend.entity.*;
 import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
 import com.be9expensphie.expensphie_backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -43,6 +50,7 @@ public class ExpenseService {
 	private final AiService aiService;
 	private final ExpenseSplitDetailsRepository expenseSplitDetailsRepo;
 	private final SettlementRepository settlementRepository;
+	private final SimpMessagingTemplate messagingTemplate;
 	@Autowired
 	private final ObjectMapper mapper;
 
@@ -100,7 +108,13 @@ public class ExpenseService {
 		if (savedExpense.getStatus() == ExpenseStatus.APPROVED) {
 			settlementService.createSettlementsForExpense(savedExpense);
 		}
-		return toDTO(savedExpense);
+
+		CreateExpenseResponseDTO response = toDTO(savedExpense);
+		messagingTemplate.convertAndSend(
+				expenseTopic(householdId),
+				new CreateExpenseEventDTO("EXPENSE_CREATED", response, householdId)
+		);
+		return response;
 	}
 
 	// convert entity to dto
@@ -119,7 +133,7 @@ public class ExpenseService {
 	}
 
 	//get all expense or approved
-	public List<CreateExpenseResponseDTO> getExpense(Long householdId,ExpenseStatus status) {
+	public CursorDTO<CreateExpenseResponseDTO> getExpense(Long householdId, ExpenseStatus status, int limit, Long cursor) {
 		UserEntity currentUser=userService.getCurrentUser();
 		List<ExpenseEntity> expenses;
 		//find household and check if user in this household
@@ -129,15 +143,39 @@ public class ExpenseService {
 		HouseholdMember member = householdMemberRepo.findByUserAndHousehold(currentUser, household)
 				.orElseThrow(() -> new RuntimeException("User not in household"));
 
-		//query entity and return dto response
+		Pageable pageable= PageRequest.of(0,limit+1, Sort.by("id").descending());
+
 		if(status==null) {
-			expenses=expenseRepo.findByHousehold(household);
+			//first page auto query first 10 expense
+			if(cursor==null){
+				//take 11 expense for checking has more, no need for additional query
+				expenses=expenseRepo.findNextExpense(Long.MAX_VALUE, household, pageable);
+			}else{
+				expenses=expenseRepo.findNextExpense(cursor,household,pageable);
+			}
 		}else {
-			expenses=expenseRepo.findApprovedHousehold(householdId, status);
+			if(cursor==null){
+				expenses=expenseRepo.findExpenseByStatus(householdId,status,Long.MAX_VALUE,pageable);
+			}else{
+				expenses=expenseRepo.findExpenseByStatus(householdId, status,cursor,pageable);
+			}
+
 		}
-		return expenses.stream()
-				.map(this::toDTO)
-				.toList();
+		boolean hasMore=expenses.size()>limit;
+
+		//trim to 10 expense per page
+		if(hasMore){
+			expenses=expenses.subList(0,limit);
+		}
+		//next cursor=expenseId, compare with id index for better complexity
+		Long nextCursor=expenses.isEmpty()?null:expenses.get(expenses.size()-1).getId();
+
+
+		return CursorDTO.<CreateExpenseResponseDTO>builder()
+				.hasMore(hasMore)
+				.nextCursor(nextCursor)
+				.data(expenses.stream().map(this::toDTO).toList())
+				.build();
 	}
 
 
@@ -298,7 +336,17 @@ public class ExpenseService {
 		expenseRepo.save(expense);
 		settlementService.createSettlementsForExpense(expense);
 
-		return toDTO(expense);
+		CreateExpenseResponseDTO response = toDTO(expense);
+		messagingTemplate.convertAndSend(
+				expenseTopic(householdId),
+				new CreateExpenseEventDTO("EXPENSE_ACCEPTED", response, householdId)
+		);
+
+		return response;
+	}
+
+	private String expenseTopic(Long householdId) {
+		return "/topic/households/" + householdId + "/expense";
 	}
 
 	// reject
@@ -310,6 +358,11 @@ public class ExpenseService {
 			throw new RuntimeException("Only pending expense can be rejected");
 		}
 		expense.setStatus(ExpenseStatus.REJECTED);
+
+		messagingTemplate.convertAndSend(
+				expenseTopic(householdId),
+				new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId)
+		);
 		expenseRepo.save(expense);
 	}
 

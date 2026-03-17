@@ -1,5 +1,6 @@
 package com.be9expensphie.expensphie_backend.repository;
 
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -12,17 +13,23 @@ import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
 
 public interface ExpenseRepository extends JpaRepository<ExpenseEntity,Long>{
 	//get all expense in household
-	List<ExpenseEntity> findByHousehold(Household household);
+	@Query("select e from ExpenseEntity e where e.id<:cursor and e.household=:household order by e.id desc ")
+	List<ExpenseEntity> findNextExpense(@Param("cursor") Long cursor,
+										@Param("household") Household household,
+										Pageable pageable);
 	
-	//get approved expense
+	//get expense based on status
 	@Query(
 			"select e from ExpenseEntity e "
 			+ "where e.household.id= :householdId "
 			+ "and e.status = :status "
+					+ "and e.id<:cursor order by e.id desc"
 			)
-	List<ExpenseEntity> findApprovedHousehold(
+	List<ExpenseEntity> findExpenseByStatus(
 			@Param("householdId") Long householdId,
-			@Param("status") ExpenseStatus status
+			@Param("status") ExpenseStatus status,
+			@Param("cursor")Long cursor,
+			Pageable pageable
 			);
 	
 	Optional<ExpenseEntity> findByIdAndHousehold(Long id,Household household);

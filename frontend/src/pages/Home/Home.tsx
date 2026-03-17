@@ -8,6 +8,7 @@ import PageMeta from "../../components/common/PageMeta";
 import JoinGroupModal from "../../components/household/JoinGroupModal";
 import CreateGroupModal from "../../components/household/CreateGroupModal";
 import { useHousehold } from "../../context/HouseholdContext";
+import { useExpenseEventRefresh } from "../../hooks/useExpenseEventRefresh";
 import { householdAPI } from "../../services/householdApi";
 import type { ChartTabValue } from "../../components/common/ChartTab";
 
@@ -170,8 +171,8 @@ export default function Home() {
 
     try {
       const [
-        allExpenses,
-        approvedExpenses,
+        allExpensesPage,
+        recentExpensesPage,
         approvedDailyExpenses,
         pendingDailyExpenses,
         rejectedDailyExpenses,
@@ -181,7 +182,7 @@ export default function Home() {
       ] =
         (await Promise.all([
           householdAPI.getHouseholdExpenses(activeHousehold.id),
-          householdAPI.getHouseholdExpensesByStatus(activeHousehold.id, "APPROVED"),
+          householdAPI.getHouseholdExpenses(activeHousehold.id, 8),
           householdAPI.getExpenseByPeriod(activeHousehold.id, "DAILY", "APPROVED"),
           householdAPI.getExpenseByPeriod(activeHousehold.id, "DAILY", "PENDING"),
           householdAPI.getExpenseByPeriod(activeHousehold.id, "DAILY", "REJECTED"),
@@ -189,8 +190,8 @@ export default function Home() {
           householdAPI.getExpenseByPeriod(activeHousehold.id, "WEEKLY", "PENDING"),
           householdAPI.getExpenseByPeriod(activeHousehold.id, "WEEKLY", "REJECTED"),
         ])) as [
-          RecentExpenseItem[],
-          RecentExpenseItem[],
+          Awaited<ReturnType<typeof householdAPI.getHouseholdExpenses>>,
+          Awaited<ReturnType<typeof householdAPI.getHouseholdExpenses>>,
           RecentExpenseItem[],
           RecentExpenseItem[],
           RecentExpenseItem[],
@@ -199,13 +200,10 @@ export default function Home() {
           RecentExpenseItem[],
         ];
 
-      const sortedRecent = [...(approvedExpenses || [])].sort((a, b) => {
-        const aDate = a.date ? new Date(a.date).getTime() : 0;
-        const bDate = b.date ? new Date(b.date).getTime() : 0;
-        return bDate - aDate;
-      });
+      const allExpenses: RecentExpenseItem[] = (allExpensesPage.data ?? []) as RecentExpenseItem[];
+      const approvedExpenses: RecentExpenseItem[] = (recentExpensesPage.data ?? []) as RecentExpenseItem[];
 
-      setRecentExpenses(sortedRecent.slice(0, 5));
+      setRecentExpenses(approvedExpenses);
 
       const approvedSeries = toDailySeries(approvedDailyExpenses || []);
       const pendingSeries = toDailySeries(pendingDailyExpenses || []);
@@ -234,6 +232,10 @@ export default function Home() {
   useEffect(() => {
     loadExpenses();
   }, [loadExpenses]);
+
+  useExpenseEventRefresh(() => {
+    void loadExpenses();
+  });
 
   const dailyChartEmpty = useMemo(
     () => dailyTotals.every((value) => value === 0) && dailyApprovedTotals.every((value) => value === 0),

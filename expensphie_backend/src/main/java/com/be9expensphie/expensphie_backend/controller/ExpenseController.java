@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.controller;
 
 import java.util.List;
 
+import com.be9expensphie.expensphie_backend.dto.CursorDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,11 +42,13 @@ public class ExpenseController {
 	
 	//get all expense 
 	@GetMapping()
-	public ResponseEntity<List<CreateExpenseResponseDTO>> getExpenses(
+	public ResponseEntity<CursorDTO<CreateExpenseResponseDTO>> getExpenses(
 			@PathVariable Long householdId,
-			@RequestParam(required=false) ExpenseStatus status
+			@RequestParam(required=false) ExpenseStatus status,
+			@RequestParam(defaultValue = "10") int limit,
+			@RequestParam(required = false) Long cursor
 			){
-		List<CreateExpenseResponseDTO> expenses=expenseService.getExpense(householdId,status);
+		CursorDTO<CreateExpenseResponseDTO> expenses=expenseService.getExpense(householdId,status,limit,cursor);
 		return ResponseEntity.ok(expenses);
 	}
 	

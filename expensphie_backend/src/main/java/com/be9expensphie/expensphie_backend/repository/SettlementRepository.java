@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -46,4 +47,11 @@ public interface SettlementRepository extends JpaRepository<SettlementEntity, Lo
     boolean existsByExpenseSplitDetails(ExpenseSplitDetailsEntity expenseSplitDetails);
 
     Optional<SettlementEntity> findByExpenseSplitDetails(ExpenseSplitDetailsEntity expenseSplitDetails);
+
+    @Query("select s from SettlementEntity s where s.id<:cursor and s.fromMember = :member and s.expenseSplitDetails.expense.status = :status")
+    List<SettlementEntity> findNextSettlement(
+            @Param("cursor") Long cursor,
+            @Param("member") HouseholdMember householdMember,
+            @Param("status") ExpenseStatus expenseStatus,
+            Pageable pageable);
 }
