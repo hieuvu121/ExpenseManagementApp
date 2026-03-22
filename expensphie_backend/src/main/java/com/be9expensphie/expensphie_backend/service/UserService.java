@@ -3,6 +3,7 @@ package com.be9expensphie.expensphie_backend.service;
 import java.util.Map;
 import java.util.UUID;
 
+import com.be9expensphie.expensphie_backend.producer.EmailProducer;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -23,10 +24,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
-    private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
+    private final EmailProducer emailProducer;
 
     public UserDTO registerUser(UserDTO userDTO) {
         UserEntity newUser = toEntity(userDTO);
@@ -36,7 +37,7 @@ public class UserService {
         String activationLink = "http://localhost:8080/app/v1/activate?token=" + newUser.getActivationToken();
         String subject = "Activate your Expensphie account";
         String body = "Click on the following link to activate your account: " + activationLink;
-        emailService.sendEmail(newUser.getEmail(), subject, body);
+        emailProducer.sendEmailEvent(newUser.getEmail(),subject,body,"ACTIVATION");
         return toDTO(newUser);
     }
 

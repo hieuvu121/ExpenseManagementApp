@@ -3,6 +3,7 @@ package com.be9expensphie.expensphie_backend.service;
 import java.util.Date;
 import java.util.concurrent.ThreadLocalRandom;
 
+import com.be9expensphie.expensphie_backend.producer.EmailProducer;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,9 +19,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ForgotPasswordService {
     private final ForgotPasswordRepository forgotPasswordRepository;
-    private final EmailService emailService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailProducer emailProducer;
 
     @SuppressWarnings("null")
     public void verifyEmail(String email) {
@@ -29,7 +30,7 @@ public class ForgotPasswordService {
         Integer otp = ThreadLocalRandom.current().nextInt(100000, 1000000);
         String subject = "OTP for Forgot Password Request";
         String body = "Please use this OTP to reset your password within 2 minutes: " + otp;
-        emailService.sendEmail(email, subject, body);
+        emailProducer.sendEmailEvent(email, subject, body,"FORGET_PASSWORD");
 
         ForgotPasswordEntity fp = ForgotPasswordEntity.builder()
                                                     .otp(otp)
