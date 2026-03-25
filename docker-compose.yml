@@ -26,6 +26,7 @@ services:
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL}
       JWT_SECRET: ${JWT_SECRET}
       OPEN_AI_KEY: ${OPEN_AI_KEY}
+      GOOGLE_GENAI_API_KEY: ${GOOGLE_GENAI_API_KEY}
     depends_on:
       db:
         condition: service_healthy
