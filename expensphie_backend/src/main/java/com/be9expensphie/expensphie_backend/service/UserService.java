@@ -37,7 +37,12 @@ public class UserService {
         String activationLink = "http://localhost:8080/app/v1/activate?token=" + newUser.getActivationToken();
         String subject = "Activate your Expensphie account";
         String body = "Click on the following link to activate your account: " + activationLink;
-        emailProducer.sendEmailEvent(newUser.getEmail(),subject,body,"ACTIVATION");
+        try{
+            emailProducer.sendEmailEvent(newUser.getEmail(),subject,body,"ACTIVATION");
+        }catch(Exception e){
+            System.err.println("Failed to publish activation email event: " + e.getMessage());
+            e.printStackTrace();
+        }
         return toDTO(newUser);
     }
 
