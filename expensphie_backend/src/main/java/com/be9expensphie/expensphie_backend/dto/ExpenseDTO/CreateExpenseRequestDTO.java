@@ -14,14 +14,14 @@ import lombok.Data;
 @Builder
 public class CreateExpenseRequestDTO {
     @NotNull
-    private BigDecimal amount;
-    private LocalDate date;
+    public BigDecimal amount;
+    public LocalDate date;
     @NotBlank
-    private String category;
-    private String description;
-    private Method method;
-    private String currency;
-    private List<SplitRequestDTO> splits;
+    public String category;
+    public String description;
+    public Method method;
+    public String currency;
+    public List<SplitRequestDTO> splits;
 
 
 }
