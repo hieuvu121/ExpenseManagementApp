@@ -26,9 +26,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
-
-
-
 //check if query data is true or not
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -56,7 +53,6 @@ public class ExpenseRepositoryTest {
         assertThat(found.get().getAmount()).isEqualByComparingTo(BigDecimal.valueOf(50));//check val
         assertThat(found.get().getHousehold().getId()).isEqualTo(household.getId());
     }
-
 
     @Test
     public void findExpensesByHouseholdWithCursor_ShouldReturnCorrectOrder(){
