@@ -1,15 +1,21 @@
 package com.be9expensphie.expensphie_backend.serviceTests;
 
+import com.be9expensphie.expensphie_backend.dto.CursorDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseRequestDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseResponseDTO;
 import com.be9expensphie.expensphie_backend.dto.SplitDTO.SplitRequestDTO;
 import com.be9expensphie.expensphie_backend.entity.ExpenseEntity;
+import com.be9expensphie.expensphie_backend.entity.ExpenseSplitDetailsEntity;
 import com.be9expensphie.expensphie_backend.entity.Household;
 import com.be9expensphie.expensphie_backend.entity.HouseholdMember;
+import com.be9expensphie.expensphie_backend.entity.SettlementEntity;
 import com.be9expensphie.expensphie_backend.entity.UserEntity;
 import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
 import com.be9expensphie.expensphie_backend.enums.HouseholdRole;
 import com.be9expensphie.expensphie_backend.enums.Method;
+import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
+import com.be9expensphie.expensphie_backend.enums.TimeRange;
+import com.be9expensphie.expensphie_backend.Exception.AiExpenseParseException;
 import com.be9expensphie.expensphie_backend.repository.ExpenseRepository;
 import com.be9expensphie.expensphie_backend.repository.ExpenseSplitDetailsRepository;
 import com.be9expensphie.expensphie_backend.repository.HouseholdMemberRepository;
@@ -22,6 +28,7 @@ import com.be9expensphie.expensphie_backend.service.HouseholdMemberService;
 import com.be9expensphie.expensphie_backend.service.SettlementService;
 import com.be9expensphie.expensphie_backend.service.UserService;
 import com.be9expensphie.expensphie_backend.validation.ExpenseValidation;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,19 +36,31 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import javax.swing.text.html.Option;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
@@ -355,6 +374,441 @@ public class ExpenseServiceTests {
             expenseService.createExpense(1L, request);
         });
     }
+
+    @Test
+    public void testGetSingleExpense_Success() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        UserEntity admin = createUser(2L, "Admin");
+        
+        Household household = new Household();
+        household.setId(1L);
+        
+        HouseholdMember member = createHouseholdMember(HouseholdRole.ROLE_MEMBER, household, user.getId(), user);
+        HouseholdMember adminMember = createHouseholdMember(HouseholdRole.ROLE_ADMIN, household, admin.getId(), admin);
+        
+        ExpenseEntity expense = new ExpenseEntity();
+        expense.setId(1L);
+        expense.setStatus(ExpenseStatus.APPROVED);
+        expense.setAmount(BigDecimal.valueOf(100));
+        expense.setCategory("Food");
+        expense.setDescription("Lunch");
+        expense.setDate(LocalDate.now());
+        expense.setMethod(Method.EQUAL);
+        expense.setCurrency("USD");
+        expense.setCreated_by(member);
+        expense.setReviewed_by(adminMember);
+        expense.setHousehold(household);
+        
+        when(userService.getCurrentUser()).thenReturn(user);
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(householdMemberRepo.findByUserAndHousehold(user, household)).thenReturn(Optional.of(member));
+        when(expenseRepo.findByIdAndHousehold(1L, household)).thenReturn(Optional.of(expense));
+        
+        // act
+        CreateExpenseResponseDTO result = expenseService.getSingleExpense(1L, 1L);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals(BigDecimal.valueOf(100), result.getAmount());
+        assertEquals("Food", result.getCategory());
+    }
+
+    @Test
+    public void testGetSingleExpense_HouseholdNotFound() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        
+        when(userService.getCurrentUser()).thenReturn(user);
+        when(householdRepo.findById(999L)).thenReturn(Optional.empty());
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.getSingleExpense(999L, 1L);
+        });
+    }
+
+    @Test
+    public void testGetSingleExpense_UserNotInHousehold() {
+        // arrange
+        UserEntity outsider = createUser(1L, "Outsider");
+        Household household = new Household();
+        household.setId(1L);
+        
+        when(userService.getCurrentUser()).thenReturn(outsider);
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(householdMemberRepo.findByUserAndHousehold(outsider, household)).thenReturn(Optional.empty());
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.getSingleExpense(1L, 1L);
+        });
+    }
+
+    @Test
+    public void testGetSingleExpense_ExpenseNotFound() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        Household household = new Household();
+        household.setId(1L);
+        HouseholdMember member = createHouseholdMember(HouseholdRole.ROLE_MEMBER, household, user.getId(), user);
+        
+        when(userService.getCurrentUser()).thenReturn(user);
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(householdMemberRepo.findByUserAndHousehold(user, household)).thenReturn(Optional.of(member));
+        when(expenseRepo.findByIdAndHousehold(999L, household)).thenReturn(Optional.empty());
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.getSingleExpense(1L, 999L);
+        });
+    }
+
+    @Test
+    public void testRejectExpense_ByNonAdmin_ShouldThrowException() {
+        // arrange
+        when(householdSecurity.isAdmin(1L)).thenReturn(false);
+        
+        // act & assert
+        assertThrows(AccessDeniedException.class, () -> {
+            expenseService.rejectExpense(1L, 1L);
+        });
+    }
+
+    @Test
+    public void testRejectExpense_AlreadyApproved_ShouldThrowException() {
+        // arrange
+        UserEntity admin = createUser(1L, "Admin");
+        Household household = new Household();
+        household.setId(1L);
+        HouseholdMember adminMember = createHouseholdMember(HouseholdRole.ROLE_ADMIN, household, admin.getId(), admin);
+        
+        ExpenseEntity expense = new ExpenseEntity();
+        expense.setId(1L);
+        expense.setStatus(ExpenseStatus.APPROVED);
+        expense.setHousehold(household);
+        expense.setReviewed_by(adminMember);
+        
+        when(householdSecurity.isAdmin(1L)).thenReturn(true);
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(expenseRepo.findByIdAndHousehold(1L, household)).thenReturn(Optional.of(expense));
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.rejectExpense(1L, 1L);
+        });
+    }
+
+    @Test
+    public void testGetExpense_FirstPageWithoutStatus() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        Household household = new Household();
+        household.setId(1L);
+        HouseholdMember member = createHouseholdMember(HouseholdRole.ROLE_MEMBER, household, user.getId(), user);
+        
+        List<ExpenseEntity> mockExpenses = new ArrayList<>();
+        for (int i = 1; i <= 11; i++) {
+            ExpenseEntity exp = new ExpenseEntity();
+            exp.setId((long) i);
+            exp.setAmount(BigDecimal.valueOf(100 + i));
+            exp.setCategory("Food");
+            exp.setCreated_by(member);  // Set created_by to avoid NPE
+            mockExpenses.add(exp);
+        }
+        
+        when(userService.getCurrentUser()).thenReturn(user);
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(householdMemberRepo.findByUserAndHousehold(user, household)).thenReturn(Optional.of(member));
+        when(expenseRepo.findNextExpense(eq(Long.MAX_VALUE), eq(household), any(Pageable.class))).thenReturn(mockExpenses);
+        
+        // act
+        CursorDTO<CreateExpenseResponseDTO> result = expenseService.getExpense(1L, null, 10, null);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(10, result.getData().size());
+        assertTrue(result.isHasMore());
+        assertNotNull(result.getNextCursor());
+    }
+
+    @Test
+    public void testGetExpense_WithCursorPagination() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        Household household = new Household();
+        household.setId(1L);
+        HouseholdMember member = createHouseholdMember(HouseholdRole.ROLE_MEMBER, household, user.getId(), user);
+        
+        List<ExpenseEntity> mockExpenses = new ArrayList<>();
+        for (int i = 1; i <= 11; i++) {
+            ExpenseEntity exp = new ExpenseEntity();
+            exp.setId((long) i);
+            exp.setAmount(BigDecimal.valueOf(100 + i));
+            exp.setCategory("Food");
+            exp.setCreated_by(member);  // Set created_by to avoid NPE
+            mockExpenses.add(exp);
+        }
+        
+        when(userService.getCurrentUser()).thenReturn(user);
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(householdMemberRepo.findByUserAndHousehold(user, household)).thenReturn(Optional.of(member));
+        when(expenseRepo.findNextExpense(eq(50L), eq(household), any(Pageable.class))).thenReturn(mockExpenses);
+        
+        // act
+        CursorDTO<CreateExpenseResponseDTO> result = expenseService.getExpense(1L, null, 10, 50L);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(10, result.getData().size());
+        assertTrue(result.isHasMore());
+    }
+
+    @Test
+    public void testGetExpense_FilterByStatus() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        Household household = new Household();
+        household.setId(1L);
+        HouseholdMember member = createHouseholdMember(HouseholdRole.ROLE_MEMBER, household, user.getId(), user);
+        
+        List<ExpenseEntity> mockExpenses = new ArrayList<>();
+        for (int i = 1; i <= 5; i++) {
+            ExpenseEntity exp = new ExpenseEntity();
+            exp.setId((long) i);
+            exp.setAmount(BigDecimal.valueOf(100 + i));
+            exp.setStatus(ExpenseStatus.APPROVED);
+            exp.setCreated_by(member);  // Set created_by to avoid NPE
+            mockExpenses.add(exp);
+        }
+        
+        when(userService.getCurrentUser()).thenReturn(user);
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(householdMemberRepo.findByUserAndHousehold(user, household)).thenReturn(Optional.of(member));
+        when(expenseRepo.findExpenseByStatus(eq(1L), eq(ExpenseStatus.APPROVED), eq(Long.MAX_VALUE), any(Pageable.class)))
+                .thenReturn(mockExpenses);
+        
+        // act
+        CursorDTO<CreateExpenseResponseDTO> result = expenseService.getExpense(1L, ExpenseStatus.APPROVED, 10, null);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(5, result.getData().size());
+        assertFalse(result.isHasMore());
+    }
+
+    @Test
+    public void testGetExpense_UserNotInHousehold_ShouldThrowException() {
+        // arrange
+        UserEntity outsider = createUser(1L, "Outsider");
+        Household household = new Household();
+        household.setId(1L);
+        
+        when(userService.getCurrentUser()).thenReturn(outsider);
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(householdMemberRepo.findByUserAndHousehold(outsider, household)).thenReturn(Optional.empty());
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.getExpense(1L, null, 10, null);
+        });
+    }
+
+    @Test
+    public void testGetExpenseByPeriod_DailyRange() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        Household household = new Household();
+        household.setId(1L);
+        HouseholdMember member = createHouseholdMember(HouseholdRole.ROLE_MEMBER, household, user.getId(), user);
+        
+        List<ExpenseEntity> mockExpenses = new ArrayList<>();
+        ExpenseEntity exp = new ExpenseEntity();
+        exp.setId(1L);
+        exp.setAmount(BigDecimal.valueOf(100));
+        exp.setCreated_by(member);  // Set created_by to avoid NPE
+        mockExpenses.add(exp);
+        
+        when(expenseRepo.findExpenseInRange(eq(1L), eq(ExpenseStatus.APPROVED), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(mockExpenses);
+        
+        // act
+        List<CreateExpenseResponseDTO> result = expenseService.getExpenseByPeriod(ExpenseStatus.APPROVED, 1L, TimeRange.DAILY);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    public void testGetExpenseByPeriod_WeeklyRange() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        Household household = new Household();
+        household.setId(1L);
+        HouseholdMember member = createHouseholdMember(HouseholdRole.ROLE_MEMBER, household, user.getId(), user);
+        
+        List<ExpenseEntity> mockExpenses = new ArrayList<>();
+        for (int i = 1; i <= 3; i++) {
+            ExpenseEntity exp = new ExpenseEntity();
+            exp.setId((long) i);
+            exp.setAmount(BigDecimal.valueOf(100 * i));
+            exp.setCreated_by(member);  // Set created_by to avoid NPE
+            mockExpenses.add(exp);
+        }
+        
+        when(expenseRepo.findExpenseInRange(eq(1L), eq(ExpenseStatus.PENDING), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(mockExpenses);
+        
+        // act
+        List<CreateExpenseResponseDTO> result = expenseService.getExpenseByPeriod(ExpenseStatus.PENDING, 1L, TimeRange.WEEKLY);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(3, result.size());
+    }
+
+    @Test
+    public void testGetExpenseByPeriod_MonthlyRange() {
+        // arrange
+        List<ExpenseEntity> mockExpenses = new ArrayList<>();
+        
+        when(expenseRepo.findExpenseInRange(eq(1L), eq(ExpenseStatus.REJECTED), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(mockExpenses);
+        
+        // act
+        List<CreateExpenseResponseDTO> result = expenseService.getExpenseByPeriod(ExpenseStatus.REJECTED, 1L, TimeRange.MONTHLY);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    public void testGetExpenseLastMonth_Success() {
+        // arrange
+        UserEntity user = createUser(1L, "Member");
+        Household household = new Household();
+        household.setId(1L);
+        HouseholdMember member = createHouseholdMember(HouseholdRole.ROLE_MEMBER, household, user.getId(), user);
+        
+        List<ExpenseEntity> mockExpenses = new ArrayList<>();
+        for (int i = 1; i <= 5; i++) {
+            ExpenseEntity exp = new ExpenseEntity();
+            exp.setId((long) i);
+            exp.setAmount(BigDecimal.valueOf(100 * i));
+            exp.setCreated_by(member);  // Set created_by to avoid NPE
+            mockExpenses.add(exp);
+        }
+        
+        when(expenseRepo.findExpenseInLastMonth(1L)).thenReturn(mockExpenses);
+        
+        // act
+        List<CreateExpenseResponseDTO> result = expenseService.getExpenseLastMonth(1L);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(5, result.size());
+    }
+
+    @Test
+    public void testGetExpenseLastMonth_NoExpenses() {
+        // arrange
+        when(expenseRepo.findExpenseInLastMonth(1L)).thenReturn(new ArrayList<>());
+        
+        // act
+        List<CreateExpenseResponseDTO> result = expenseService.getExpenseLastMonth(1L);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(0, result.size());
+    }
+
+    // ============== FINDEXPENSE TESTS ==============
+    @Test
+    public void testFindExpense_Success() {
+        // arrange
+        Household household = new Household();
+        household.setId(1L);
+        
+        ExpenseEntity expense = new ExpenseEntity();
+        expense.setId(1L);
+        expense.setAmount(BigDecimal.valueOf(100));
+        expense.setHousehold(household);
+        
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(expenseRepo.findByIdAndHousehold(1L, household)).thenReturn(Optional.of(expense));
+        
+        // act
+        ExpenseEntity result = expenseService.findExpense(1L, 1L);
+        
+        // assert
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals(BigDecimal.valueOf(100), result.getAmount());
+    }
+
+    @Test
+    public void testFindExpense_HouseholdNotFound() {
+        // arrange
+        when(householdRepo.findById(999L)).thenReturn(Optional.empty());
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.findExpense(999L, 1L);
+        });
+    }
+
+    @Test
+    public void testFindExpense_ExpenseNotFound() {
+        // arrange
+        Household household = new Household();
+        household.setId(1L);
+        
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(expenseRepo.findByIdAndHousehold(999L, household)).thenReturn(Optional.empty());
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.findExpense(1L, 999L);
+        });
+    }
+
+    @Test
+    public void testUpdateExpense_HouseholdNotFound() {
+        // arrange
+        CreateExpenseRequestDTO updateRequest = CreateExpenseRequestDTO.builder()
+                .amount(BigDecimal.valueOf(200))
+                .build();
+        
+        when(householdRepo.findById(999L)).thenReturn(Optional.empty());
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.updateExpense(999L, 1L, updateRequest);
+        });
+    }
+
+    @Test
+    public void testUpdateExpense_ExpenseNotFound() {
+        // arrange
+        Household household = new Household();
+        household.setId(1L);
+        
+        CreateExpenseRequestDTO updateRequest = CreateExpenseRequestDTO.builder()
+                .amount(BigDecimal.valueOf(200))
+                .build();
+        
+        when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
+        when(expenseRepo.findByIdAndHousehold(999L, household)).thenReturn(Optional.empty());
+        
+        // act & assert
+        assertThrows(RuntimeException.class, () -> {
+            expenseService.updateExpense(1L, 999L, updateRequest);
+        });
+    }
+
 
     private UserEntity createUser(Long id,String name){
         UserEntity user=new UserEntity();
