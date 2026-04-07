@@ -114,9 +114,8 @@ public class ExpenseServiceTests {
         when(householdMemberRepo.findByHouseholdAndRole(household,HouseholdRole.ROLE_ADMIN)).thenReturn(Optional.of(memberAdmin));
         when(householdMemberRepo.findByUserAndHousehold(admin,household)).thenReturn(Optional.of(memberAdmin));
         
-        // Mock household member lookups for splits
-        when(householdMemberRepo.findById(1L)).thenReturn(Optional.of(memberAdmin));
-        when(householdMemberRepo.findById(2L)).thenReturn(Optional.of(member2));
+        // Mock batch fetch for splits (now uses findAllById instead of findById)
+        when(householdMemberRepo.findAllById(List.of(1L, 2L))).thenReturn(List.of(memberAdmin, member2));
 
         ExpenseEntity expense=createExpense(request,memberAdmin,memberAdmin,household,ExpenseStatus.APPROVED);
 
@@ -151,9 +150,8 @@ public class ExpenseServiceTests {
                 HouseholdRole.ROLE_ADMIN)).thenReturn(Optional.of(member2));
         when(householdMemberRepo.findByUserAndHousehold(user, household)).thenReturn(Optional.of(member));
 
-        // Mock household member lookups for splits
-        when(householdMemberRepo.findById(1L)).thenReturn(Optional.of(member));
-        when(householdMemberRepo.findById(2L)).thenReturn(Optional.of(member2));
+        // Mock batch fetch for splits (now uses findAllById instead of findById)
+        when(householdMemberRepo.findAllById(List.of(1L, 2L))).thenReturn(List.of(member, member2));
 
         ExpenseEntity expense=createExpense(request,member2,member,household,ExpenseStatus.PENDING);
         //act
@@ -340,8 +338,10 @@ public class ExpenseServiceTests {
                 .thenReturn(Optional.of(adminMember));
         when(householdMemberRepo.findByUserAndHousehold(admin, household))
                 .thenReturn(Optional.of(adminMember));
-        when(householdMemberRepo.findById(adminMember.getId())).thenReturn(Optional.of(adminMember));
-        when(householdMemberRepo.findById(999L)).thenReturn(Optional.empty()); // Non-existent member
+        // Mock batch fetch returns only adminMember, not the non-existent 999L
+        // Validation should catch this in ExpenseValidation
+        when(householdMemberRepo.findAllById(List.of(adminMember.getId(), 999L)))
+                .thenReturn(List.of(adminMember));
         
         // act & assert
         assertThrows(RuntimeException.class, () -> {

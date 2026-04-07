@@ -8,7 +8,9 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import com.be9expensphie.expensphie_backend.entity.*;
 import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
@@ -62,9 +64,9 @@ public class ExpenseService {
 		Household household = householdRepo.findById(householdId)
 				.orElseThrow(() -> new RuntimeException("Household not found"));
 
-		Optional<HouseholdMember> adminOptional = householdMemberRepo.findByHouseholdAndRole(household,
-				HouseholdRole.ROLE_ADMIN);
-		HouseholdMember admin = adminOptional.get();
+		HouseholdMember admin = householdMemberRepo
+				.findByHouseholdAndRole(household, HouseholdRole.ROLE_ADMIN)
+				.orElseThrow(() -> new RuntimeException("No admin found for household"));
 		// find member
 		Optional<HouseholdMember> memberOptional = householdMemberRepo.findByUserAndHousehold(currentUser, household);
 		if (memberOptional.isEmpty()) {
@@ -93,10 +95,16 @@ public class ExpenseService {
 				.currency(createRequest.getCurrency())
 				.build();
 
+		List<Long> memberId=createRequest.getSplits().stream()
+				.map(SplitRequestDTO::getMemberId)
+				.toList();
+		List<HouseholdMember> members=householdMemberRepo.findAllById(memberId);
+		Map<Long,HouseholdMember> memberMap=members.stream()
+				.collect(Collectors.toMap(HouseholdMember::getId, m->m));
+
 		// take splits and store;
 		for (SplitRequestDTO split : createRequest.getSplits()) {
-			HouseholdMember memberPaid = householdMemberRepo.findById(split.getMemberId())
-					.orElseThrow(() -> new RuntimeException("Member not found"));
+			HouseholdMember memberPaid = memberMap.get(split.getMemberId());
 			ExpenseSplitDetailsEntity splitDetails = ExpenseSplitDetailsEntity.builder()
 					.amount(split.getAmount())
 					.member(memberPaid)
