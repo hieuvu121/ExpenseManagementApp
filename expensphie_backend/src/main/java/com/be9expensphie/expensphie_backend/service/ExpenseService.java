@@ -161,6 +161,9 @@ public class ExpenseService {
 			}else{
 				expenses=expenseRepo.findNextExpense(cursor,household,pageable);
 			}
+			if(!expenses.isEmpty()){
+				expenseRepo.fetchsplitDeatils(expenses);
+			}
 		}else {
 			if(cursor==null){
 				expenses=expenseRepo.findExpenseByStatus(householdId,status,Long.MAX_VALUE,pageable);
