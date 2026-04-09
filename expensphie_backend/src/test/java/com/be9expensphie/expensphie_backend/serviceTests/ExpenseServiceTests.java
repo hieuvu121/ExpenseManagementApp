@@ -220,8 +220,12 @@ public class ExpenseServiceTests {
         
         when(householdRepo.findById(1L)).thenReturn(Optional.of(household));
         when(expenseRepo.findByIdAndHousehold(1L, household)).thenReturn(Optional.of(expense));
-        when(householdMemberRepo.findById(adminMember.getId())).thenReturn(Optional.of(adminMember));
-        when(householdMemberRepo.findById(regularMember.getId())).thenReturn(Optional.of(regularMember));
+        when(householdMemberRepo.findAllById(List.of(adminMember.getId(), regularMember.getId())))
+                .thenReturn(List.of(adminMember, regularMember));
+        when(expenseSplitDetailsRepo.findByExpenseWithMember(expense))
+                .thenReturn(expense.getSplitDetails());
+        when(settlementRepository.findByExpenseSplitDetails(any(ExpenseSplitDetailsEntity.class)))
+                .thenReturn(Optional.empty());
         
         // act
         CreateExpenseResponseDTO result = expenseService.updateExpense(1L, 1L, updateRequest);

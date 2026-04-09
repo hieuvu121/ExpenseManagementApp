@@ -248,29 +248,38 @@ public class ExpenseService {
 
 		//check with each split if exist->use that, if not-> create
 		if(request.getSplits()!=null && !request.getSplits().isEmpty()) {
-		for (ExpenseSplitDetailsEntity split : request.getSplits().stream()
-				.map(splitRequest -> {
-					HouseholdMember member = householdMemberRepo.findById(splitRequest.getMemberId())
-							.orElseThrow(() -> new RuntimeException("Member not found"));
-					Optional<ExpenseSplitDetailsEntity> optionalSplit=
-							expenseSplitDetailsRepo.findByExpenseAndMember(expense,member);
-					if(optionalSplit.isEmpty()){
-						return ExpenseSplitDetailsEntity.builder()
-								.expense(expense)
-								.member(member)
-								.amount(splitRequest.getAmount())
-								.build();
-					}else{
-						ExpenseSplitDetailsEntity existSplit = optionalSplit.get();
-						existSplit.setAmount(splitRequest.getAmount());
-						return existSplit;
-					}
-				}).toList()) {
-			if(split.getId()==null) {
-				expense.getSplitDetails().add(split);
+			//take all member ids.
+			List<Long> memberIds=request.getSplits().stream().map(SplitRequestDTO::getMemberId).toList();
+			//batch fetch all id instead of iterate through all
+			List<HouseholdMember> members=householdMemberRepo.findAllById(memberIds);
+			//put to map for O(1) look up
+			Map<Long,HouseholdMember> memberMap= members.stream()
+					.collect(Collectors.toMap(HouseholdMember::getId,m->m));
+
+			//fetch existing splits
+			List<ExpenseSplitDetailsEntity> existingSplit=expenseSplitDetailsRepo.findByExpenseWithMember(expense);
+			Map<Long,ExpenseSplitDetailsEntity> splitMaps=existingSplit.stream()
+					.collect(Collectors.toMap(s->s.getMember().getId(),s->s));
+		for(SplitRequestDTO splitRequest : request.getSplits()){
+			HouseholdMember member=memberMap.get(splitRequest.getMemberId());
+			//query member
+			if (member == null) {
+				throw new RuntimeException("Member not found: " + splitRequest.getMemberId());
 			}
 
-			//update settlement
+			//query split
+			ExpenseSplitDetailsEntity split=splitMaps.get(splitRequest.getMemberId());
+			if(split==null){
+				split=ExpenseSplitDetailsEntity.builder()
+						.expense(expense)
+						.member(member)
+						.amount(splitRequest.getAmount())
+						.build();
+				expense.getSplitDetails().add(split);
+			}else{
+				split.setAmount(splitRequest.getAmount());
+			}
+
 			//if settlement new
 			if(expense.getStatus()==ExpenseStatus.APPROVED&&!expense.getCreated_by().equals(split.getMember())){
 				Optional<SettlementEntity> optionalSettlement=settlementRepository.findByExpenseSplitDetails(split);
