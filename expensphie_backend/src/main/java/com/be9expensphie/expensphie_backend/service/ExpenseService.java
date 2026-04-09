@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -245,7 +246,6 @@ public class ExpenseService {
 			expense.setCategory(request.getCategory());
 		}
 
-
 		//check with each split if exist->use that, if not-> create
 		if(request.getSplits()!=null && !request.getSplits().isEmpty()) {
 			//take all member ids.
@@ -260,6 +260,18 @@ public class ExpenseService {
 			List<ExpenseSplitDetailsEntity> existingSplit=expenseSplitDetailsRepo.findByExpenseWithMember(expense);
 			Map<Long,ExpenseSplitDetailsEntity> splitMaps=existingSplit.stream()
 					.collect(Collectors.toMap(s->s.getMember().getId(),s->s));
+
+			//take splits list for fetching
+			List<ExpenseSplitDetailsEntity> requestedSplits=request.getSplits().stream()
+					.map(sr->splitMaps.get(sr.getMemberId()))
+					.filter(Objects::nonNull)
+					.toList();
+			//fetch all settlement belong to this split
+			List<SettlementEntity> existingSettlements=settlementRepository.findByExpenseSplitDetailsIn(requestedSplits);
+			Map<Long, SettlementEntity> settlementBySplitId = existingSettlements.stream()
+					.filter(s -> s.getExpenseSplitDetails() != null && s.getExpenseSplitDetails().getId() != null)
+					.collect(Collectors.toMap(s -> s.getExpenseSplitDetails().getId(), s -> s));
+
 		for(SplitRequestDTO splitRequest : request.getSplits()){
 			HouseholdMember member=memberMap.get(splitRequest.getMemberId());
 			//query member
@@ -282,11 +294,13 @@ public class ExpenseService {
 
 			//if settlement new
 			if(expense.getStatus()==ExpenseStatus.APPROVED&&!expense.getCreated_by().equals(split.getMember())){
-				Optional<SettlementEntity> optionalSettlement=settlementRepository.findByExpenseSplitDetails(split);
+				SettlementEntity settlement=null;
+				if(split.getId()!=null){
+					settlement=settlementBySplitId.get(split.getId());
+				}
 				//current settlement
-				if(optionalSettlement.isPresent()){
+				if(settlement!=null){
 					//take settlement out if not null
-					SettlementEntity settlement=optionalSettlement.get();
 					if(settlement.getStatus()==SettlementStatus.COMPLETED){
 						//if completed-> create new settlement
 						SettlementEntity newSettlement=SettlementEntity.builder()
