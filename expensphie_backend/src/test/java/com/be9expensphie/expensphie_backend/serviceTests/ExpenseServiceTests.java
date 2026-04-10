@@ -224,8 +224,6 @@ public class ExpenseServiceTests {
                 .thenReturn(List.of(adminMember, regularMember));
         when(expenseSplitDetailsRepo.findByExpenseWithMember(expense))
                 .thenReturn(expense.getSplitDetails());
-        when(settlementRepository.findByExpenseSplitDetails(any(ExpenseSplitDetailsEntity.class)))
-                .thenReturn(Optional.empty());
         
         // act
         CreateExpenseResponseDTO result = expenseService.updateExpense(1L, 1L, updateRequest);
