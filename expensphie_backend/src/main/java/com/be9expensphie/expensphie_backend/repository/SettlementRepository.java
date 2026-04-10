@@ -1,6 +1,7 @@
 package com.be9expensphie.expensphie_backend.repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,15 +23,19 @@ public interface SettlementRepository extends JpaRepository<SettlementEntity, Lo
 
     @Query("select s from SettlementEntity s where s.fromMember = :member "
             + "and (s.status = 'PENDING' or s.status = 'AWAITING_APPROVAL') "
-            + "and FUNCTION('MONTH', s.date) = FUNCTION('MONTH', CURRENT_DATE) "
-            + "and FUNCTION('YEAR', s.date) = FUNCTION('YEAR', CURRENT_DATE)")
-    List<SettlementEntity> findCurrentMonthPendingSettlementsForMember(@Param("member") HouseholdMember member);
+            + "and s.date >= :start and s.date < :end")
+    List<SettlementEntity> findCurrentMonthPendingSettlementsForMember(
+            @Param("member") HouseholdMember member,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end);
 
     @Query("select SUM(s.amount) from SettlementEntity s where s.fromMember = :member "
             + "and (s.status = 'PENDING' or s.status = 'AWAITING_APPROVAL') "
-            + "and FUNCTION('MONTH', s.date) = FUNCTION('MONTH', CURRENT_DATE) "
-            + "and FUNCTION('YEAR', s.date) = FUNCTION('YEAR', CURRENT_DATE)")
-    BigDecimal findCurrentMonthTotalPendingAmountForMember(@Param("member") HouseholdMember member);
+            + "and s.date >= :start and s.date < :end")
+    BigDecimal findCurrentMonthTotalPendingAmountForMember(
+            @Param("member") HouseholdMember member,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end);
 
     @Query(value = "SELECT * FROM settlements s WHERE s.from_member_id = :#{#member.id} "
             + "AND (s.status = 'PENDING' OR s.status = 'AWAITING_APPROVAL') "
@@ -54,4 +59,6 @@ public interface SettlementRepository extends JpaRepository<SettlementEntity, Lo
             @Param("member") HouseholdMember householdMember,
             @Param("status") ExpenseStatus expenseStatus,
             Pageable pageable);
+
+    List<SettlementEntity> findByExpenseSplitDetailsIn(List<ExpenseSplitDetailsEntity> splits);
 }

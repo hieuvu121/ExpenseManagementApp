@@ -217,10 +217,12 @@ public class SettlementService {
             if (!householdId.equals(householdMember.getHousehold().getId())) {
                 throw new IllegalArgumentException("Household member does not belong to the specified household");
             }
+            LocalDate start = LocalDate.now().withDayOfMonth(1);
+            LocalDate end = start.plusMonths(1);
             List<SettlementEntity> currentMonthPendingSettlements = settlementRepository
-                    .findCurrentMonthPendingSettlementsForMember(householdMember);
+                    .findCurrentMonthPendingSettlementsForMember(householdMember, start, end);
             BigDecimal totalPendingAmount = settlementRepository
-                    .findCurrentMonthTotalPendingAmountForMember(householdMember);
+                    .findCurrentMonthTotalPendingAmountForMember(householdMember, start, end);
             return Map.of(
                     "pendingSettlements",
                     currentMonthPendingSettlements.stream().map(this::toDTO).collect(Collectors.toList()),
