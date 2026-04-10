@@ -28,7 +28,7 @@ import org.springframework.data.domain.Sort;
 
 //check if query data is true or not
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
 public class ExpenseRepositoryTest {
     @Autowired
     private ExpenseRepository expenseRepository;
