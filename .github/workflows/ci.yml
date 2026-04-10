@@ -34,7 +34,7 @@ jobs:
           cache: maven
 
       - name: Run unit tests
-        run: mvn -B test
+        run: mvn -B test -Dspring.profiles.active=test
       #compose to jar file, ready to deploy and run 
       - name: Build JAR
         run: mvn -B package -DskipTests
