@@ -13,10 +13,25 @@ import com.be9expensphie.expensphie_backend.enums.ExpenseStatus;
 
 public interface ExpenseRepository extends JpaRepository<ExpenseEntity,Long>{
 	//get all expense in household
-	@Query("select e from ExpenseEntity e where e.id<:cursor and e.household=:household order by e.id desc ")
+	@Query("select distinct e from ExpenseEntity e " +
+			"left join fetch e.created_by cb " +
+			"left join fetch cb.user " +
+			"left join fetch e.reviewed_by rb " +
+			"left join fetch rb.user " +
+			"left join fetch e.household " +
+			"where e.id < :cursor and e.household = :household " +
+			"order by e.id desc"
+	)
 	List<ExpenseEntity> findNextExpense(@Param("cursor") Long cursor,
 										@Param("household") Household household,
 										Pageable pageable);
+
+	//fetch split details to each expense
+	@Query("select distinct e from ExpenseEntity e " +
+			"left join fetch e.splitDetails sd " +
+			"left join fetch sd.member " +
+			"where e IN :expenses ")
+	List<ExpenseEntity>fetchsplitDeatils(@Param("expenses") List<ExpenseEntity> expenses);
 	
 	//get expense based on status
 	@Query(

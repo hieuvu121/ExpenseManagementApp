@@ -8,7 +8,10 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import com.be9expensphie.expensphie_backend.entity.*;
 import com.be9expensphie.expensphie_backend.enums.SettlementStatus;
@@ -62,9 +65,9 @@ public class ExpenseService {
 		Household household = householdRepo.findById(householdId)
 				.orElseThrow(() -> new RuntimeException("Household not found"));
 
-		Optional<HouseholdMember> adminOptional = householdMemberRepo.findByHouseholdAndRole(household,
-				HouseholdRole.ROLE_ADMIN);
-		HouseholdMember admin = adminOptional.get();
+		HouseholdMember admin = householdMemberRepo
+				.findByHouseholdAndRole(household, HouseholdRole.ROLE_ADMIN)
+				.orElseThrow(() -> new RuntimeException("No admin found for household"));
 		// find member
 		Optional<HouseholdMember> memberOptional = householdMemberRepo.findByUserAndHousehold(currentUser, household);
 		if (memberOptional.isEmpty()) {
@@ -93,10 +96,16 @@ public class ExpenseService {
 				.currency(createRequest.getCurrency())
 				.build();
 
+		List<Long> memberId=createRequest.getSplits().stream()
+				.map(SplitRequestDTO::getMemberId)
+				.toList();
+		List<HouseholdMember> members=householdMemberRepo.findAllById(memberId);
+		Map<Long,HouseholdMember> memberMap=members.stream()
+				.collect(Collectors.toMap(HouseholdMember::getId, m->m));
+
 		// take splits and store;
 		for (SplitRequestDTO split : createRequest.getSplits()) {
-			HouseholdMember memberPaid = householdMemberRepo.findById(split.getMemberId())
-					.orElseThrow(() -> new RuntimeException("Member not found"));
+			HouseholdMember memberPaid = memberMap.get(split.getMemberId());
 			ExpenseSplitDetailsEntity splitDetails = ExpenseSplitDetailsEntity.builder()
 					.amount(split.getAmount())
 					.member(memberPaid)
@@ -152,6 +161,9 @@ public class ExpenseService {
 				expenses=expenseRepo.findNextExpense(Long.MAX_VALUE, household, pageable);
 			}else{
 				expenses=expenseRepo.findNextExpense(cursor,household,pageable);
+			}
+			if(!expenses.isEmpty()){
+				expenseRepo.fetchsplitDeatils(expenses);
 			}
 		}else {
 			if(cursor==null){
@@ -234,39 +246,61 @@ public class ExpenseService {
 			expense.setCategory(request.getCategory());
 		}
 
-
 		//check with each split if exist->use that, if not-> create
 		if(request.getSplits()!=null && !request.getSplits().isEmpty()) {
-		for (ExpenseSplitDetailsEntity split : request.getSplits().stream()
-				.map(splitRequest -> {
-					HouseholdMember member = householdMemberRepo.findById(splitRequest.getMemberId())
-							.orElseThrow(() -> new RuntimeException("Member not found"));
-					Optional<ExpenseSplitDetailsEntity> optionalSplit=
-							expenseSplitDetailsRepo.findByExpenseAndMember(expense,member);
-					if(optionalSplit.isEmpty()){
-						return ExpenseSplitDetailsEntity.builder()
-								.expense(expense)
-								.member(member)
-								.amount(splitRequest.getAmount())
-								.build();
-					}else{
-						ExpenseSplitDetailsEntity existSplit = optionalSplit.get();
-						existSplit.setAmount(splitRequest.getAmount());
-						return existSplit;
-					}
-				}).toList()) {
-			if(split.getId()==null) {
-				expense.getSplitDetails().add(split);
+			//take all member ids.
+			List<Long> memberIds=request.getSplits().stream().map(SplitRequestDTO::getMemberId).toList();
+			//batch fetch all id instead of iterate through all
+			List<HouseholdMember> members=householdMemberRepo.findAllById(memberIds);
+			//put to map for O(1) look up
+			Map<Long,HouseholdMember> memberMap= members.stream()
+					.collect(Collectors.toMap(HouseholdMember::getId,m->m));
+
+			//fetch existing splits
+			List<ExpenseSplitDetailsEntity> existingSplit=expenseSplitDetailsRepo.findByExpenseWithMember(expense);
+			Map<Long,ExpenseSplitDetailsEntity> splitMaps=existingSplit.stream()
+					.collect(Collectors.toMap(s->s.getMember().getId(),s->s));
+
+			//take splits list for fetching
+			List<ExpenseSplitDetailsEntity> requestedSplits=request.getSplits().stream()
+					.map(sr->splitMaps.get(sr.getMemberId()))
+					.filter(Objects::nonNull)
+					.toList();
+			//fetch all settlement belong to this split
+			List<SettlementEntity> existingSettlements=settlementRepository.findByExpenseSplitDetailsIn(requestedSplits);
+			Map<Long, SettlementEntity> settlementBySplitId = existingSettlements.stream()
+					.filter(s -> s.getExpenseSplitDetails() != null && s.getExpenseSplitDetails().getId() != null)
+					.collect(Collectors.toMap(s -> s.getExpenseSplitDetails().getId(), s -> s));
+
+		for(SplitRequestDTO splitRequest : request.getSplits()){
+			HouseholdMember member=memberMap.get(splitRequest.getMemberId());
+			//query member
+			if (member == null) {
+				throw new RuntimeException("Member not found: " + splitRequest.getMemberId());
 			}
 
-			//update settlement
+			//query split
+			ExpenseSplitDetailsEntity split=splitMaps.get(splitRequest.getMemberId());
+			if(split==null){
+				split=ExpenseSplitDetailsEntity.builder()
+						.expense(expense)
+						.member(member)
+						.amount(splitRequest.getAmount())
+						.build();
+				expense.getSplitDetails().add(split);
+			}else{
+				split.setAmount(splitRequest.getAmount());
+			}
+
 			//if settlement new
 			if(expense.getStatus()==ExpenseStatus.APPROVED&&!expense.getCreated_by().equals(split.getMember())){
-				Optional<SettlementEntity> optionalSettlement=settlementRepository.findByExpenseSplitDetails(split);
+				SettlementEntity settlement=null;
+				if(split.getId()!=null){
+					settlement=settlementBySplitId.get(split.getId());
+				}
 				//current settlement
-				if(optionalSettlement.isPresent()){
+				if(settlement!=null){
 					//take settlement out if not null
-					SettlementEntity settlement=optionalSettlement.get();
 					if(settlement.getStatus()==SettlementStatus.COMPLETED){
 						//if completed-> create new settlement
 						SettlementEntity newSettlement=SettlementEntity.builder()
