@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.be9expensphie.expensphie_backend.producer.EmailProducer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -28,13 +29,15 @@ public class UserService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final EmailProducer emailProducer;
+    @Value("${app.base-url}")
+    private String baseUrl;
 
     public UserDTO registerUser(UserDTO userDTO) {
         UserEntity newUser = toEntity(userDTO);
         newUser.setActivationToken(UUID.randomUUID().toString());
         newUser = userRepository.save(newUser);
         // Send activation email
-        String activationLink = "http://localhost:8080/app/v1/activate?token=" + newUser.getActivationToken();
+        String activationLink = baseUrl + "/app/v1/activate?token=" + newUser.getActivationToken();
         String subject = "Activate your Expensphie account";
         String body = "Click on the following link to activate your account: " + activationLink;
         try{
