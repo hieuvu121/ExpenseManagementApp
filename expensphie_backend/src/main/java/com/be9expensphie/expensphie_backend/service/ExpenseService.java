@@ -7,10 +7,12 @@ import org.springframework.data.domain.Pageable;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.be9expensphie.expensphie_backend.entity.*;
@@ -248,6 +250,7 @@ public class ExpenseService {
 
 		//check with each split if exist->use that, if not-> create
 		if(request.getSplits()!=null && !request.getSplits().isEmpty()) {
+			Set<Long> affectedSettlementMembers = new HashSet<>();
 			//take all member ids.
 			List<Long> memberIds=request.getSplits().stream().map(SplitRequestDTO::getMemberId).toList();
 			//batch fetch all id instead of iterate through all
@@ -272,37 +275,55 @@ public class ExpenseService {
 					.filter(s -> s.getExpenseSplitDetails() != null && s.getExpenseSplitDetails().getId() != null)
 					.collect(Collectors.toMap(s -> s.getExpenseSplitDetails().getId(), s -> s));
 
-		for(SplitRequestDTO splitRequest : request.getSplits()){
-			HouseholdMember member=memberMap.get(splitRequest.getMemberId());
-			//query member
-			if (member == null) {
-				throw new RuntimeException("Member not found: " + splitRequest.getMemberId());
-			}
-
-			//query split
-			ExpenseSplitDetailsEntity split=splitMaps.get(splitRequest.getMemberId());
-			if(split==null){
-				split=ExpenseSplitDetailsEntity.builder()
-						.expense(expense)
-						.member(member)
-						.amount(splitRequest.getAmount())
-						.build();
-				expense.getSplitDetails().add(split);
-			}else{
-				split.setAmount(splitRequest.getAmount());
-			}
-
-			//if settlement new
-			if(expense.getStatus()==ExpenseStatus.APPROVED&&!expense.getCreated_by().equals(split.getMember())){
-				SettlementEntity settlement=null;
-				if(split.getId()!=null){
-					settlement=settlementBySplitId.get(split.getId());
+			for(SplitRequestDTO splitRequest : request.getSplits()){
+				HouseholdMember member=memberMap.get(splitRequest.getMemberId());
+				//query member
+				if (member == null) {
+					throw new RuntimeException("Member not found: " + splitRequest.getMemberId());
 				}
-				//current settlement
-				if(settlement!=null){
-					//take settlement out if not null
-					if(settlement.getStatus()==SettlementStatus.COMPLETED){
-						//if completed-> create new settlement
+
+				//query split
+				ExpenseSplitDetailsEntity split=splitMaps.get(splitRequest.getMemberId());
+				if(split==null){
+					split=ExpenseSplitDetailsEntity.builder()
+							.expense(expense)
+							.member(member)
+							.amount(splitRequest.getAmount())
+							.build();
+					expense.getSplitDetails().add(split);
+				}else{
+					split.setAmount(splitRequest.getAmount());
+				}
+
+				//if settlement new
+				if(expense.getStatus()==ExpenseStatus.APPROVED&&!expense.getCreated_by().equals(split.getMember())){
+					SettlementEntity settlement=null;
+					if(split.getId()!=null){
+						settlement=settlementBySplitId.get(split.getId());
+					}
+					//current settlement
+					if(settlement!=null){
+						//take settlement out if not null
+						if(settlement.getStatus()==SettlementStatus.COMPLETED){
+							//if completed-> create new settlement
+							SettlementEntity newSettlement=SettlementEntity.builder()
+									.fromMember(split.getMember())
+									.toMember(expense.getCreated_by())
+									.expenseSplitDetails(split)
+									.amount(split.getAmount())
+									.date(expense.getDate())
+									.currency(expense.getCurrency())
+									.status(SettlementStatus.PENDING)
+									.build();
+							settlementRepository.save(newSettlement);
+						}else{
+							//else, change amount
+							settlement.setAmount(split.getAmount());
+							settlement.setCurrency(expense.getCurrency());
+							settlementRepository.save(settlement);
+						}
+						//new settlement
+					}else{
 						SettlementEntity newSettlement=SettlementEntity.builder()
 								.fromMember(split.getMember())
 								.toMember(expense.getCreated_by())
@@ -313,28 +334,16 @@ public class ExpenseService {
 								.status(SettlementStatus.PENDING)
 								.build();
 						settlementRepository.save(newSettlement);
-					}else{
-						//else, change amount
-						settlement.setAmount(split.getAmount());
-						settlement.setCurrency(expense.getCurrency());
-						settlementRepository.save(settlement);
 					}
-					//new settlement
-				}else{
-					SettlementEntity newSettlement=SettlementEntity.builder()
-							.fromMember(split.getMember())
-							.toMember(expense.getCreated_by())
-							.expenseSplitDetails(split)
-							.amount(split.getAmount())
-							.date(expense.getDate())
-							.currency(expense.getCurrency())
-							.status(SettlementStatus.PENDING)
-							.build();
-					settlementRepository.save(newSettlement);
-				}
+					affectedSettlementMembers.add(split.getMember().getId());
 
+				}
 			}
-		}
+			if (!affectedSettlementMembers.isEmpty()) {
+				for (Long memberId : affectedSettlementMembers) {
+					settlementService.evictSettlementStatsCachesForMember(memberId, householdId);
+				}
+			}
 		} // end if splits not null
 
 		ExpenseEntity savedExpense=expenseRepo.save(expense);

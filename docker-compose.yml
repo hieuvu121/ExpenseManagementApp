@@ -78,6 +78,12 @@ services:
     volumes:
       - kafka_kraft:/var/lib/kafka/data
 
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+
 volumes:
   kafka_kraft:
   mysql_data:
