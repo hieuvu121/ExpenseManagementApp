@@ -380,6 +380,7 @@ public class SettlementService {
         }
     }
 
+    //helper to reduce duplication evict
     void evictSettlementStatsCachesForMember(Long memberId, Long householdId) {
         String key = memberId + ":" + householdId;
         evictCache(CACHE_SETTLEMENT_STATS_CURRENT_MONTH, key);

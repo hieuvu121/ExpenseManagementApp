@@ -4,7 +4,7 @@ import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
-import { saveAuthToken } from "../../services/coreApi";
+import { API_BASE_URL, saveAuthToken } from "../../services/coreApi";
 import { useHousehold } from "../../context/HouseholdContext";
 import { householdAPI } from "../../services/householdApi";
 
@@ -17,16 +17,13 @@ export default function SignInForm() {
   const navigate = useNavigate();
   const { clearHouseholds, refreshHouseholds } = useHousehold();
 
-  const apiBaseUrl =
-    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080/app/v1";
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage(null);
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/login`, {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

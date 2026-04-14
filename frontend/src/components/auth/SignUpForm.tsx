@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
+import { API_BASE_URL } from "../../services/coreApi";
 
 export default function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -14,9 +15,6 @@ export default function SignUpForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const apiBaseUrl =
-    import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080/app/v1";
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage(null);
@@ -24,7 +22,7 @@ export default function SignUpForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/register`, {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

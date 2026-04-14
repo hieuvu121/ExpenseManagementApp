@@ -29,8 +29,8 @@ public class RedisConfig {
                 .disableCachingNullValues();
         //custom config for different service
         Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
-        // settlement cache - 30 minutes TTL
-        cacheConfigs.put("settlement", redisCacheConfiguration.entryTtl(Duration.ofMinutes(30)));
+        // AI suggestion cache - 1h TTL
+        cacheConfigs.put("ai_suggestion",redisCacheConfiguration.entryTtl(Duration.ofHours(1)));
         // settlement stats cache - 10 minutes TTL
         cacheConfigs.put("settlement-stats-current-month", redisCacheConfiguration.entryTtl(Duration.ofMinutes(10)));
         // settlement stats cache - 30 minutes TTL

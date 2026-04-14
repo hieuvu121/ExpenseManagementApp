@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.service;
 
 import com.be9expensphie.expensphie_backend.dto.CursorDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseEventDTO.CreateExpenseEventDTO;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Pageable;
 
 import java.time.DayOfWeek;
@@ -37,6 +38,8 @@ import com.be9expensphie.expensphie_backend.security.HouseholdSecurity;
 import com.be9expensphie.expensphie_backend.validation.ExpenseValidation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +59,9 @@ public class ExpenseService {
 	private final ExpenseSplitDetailsRepository expenseSplitDetailsRepo;
 	private final SettlementRepository settlementRepository;
 	private final SimpMessagingTemplate messagingTemplate;
+	private final CacheManager cacheManager;
+	private static final String AI_SUGGESTION = "ai_suggestion";
+	private static final String EXPENSE_IN_RANGE="expense_in_range";
 	@Autowired
 	private final ObjectMapper mapper;
 
@@ -116,6 +122,8 @@ public class ExpenseService {
 			expense.getSplitDetails().add(splitDetails);
 		}
 		ExpenseEntity savedExpense = expenseRepo.save(expense);
+		evictExpenseInRangeCaches(householdId,status);
+		evictCacheForAiSuggestion(householdId);
 		if (savedExpense.getStatus() == ExpenseStatus.APPROVED) {
 			settlementService.createSettlementsForExpense(savedExpense);
 		}
@@ -347,6 +355,7 @@ public class ExpenseService {
 		} // end if splits not null
 
 		ExpenseEntity savedExpense=expenseRepo.save(expense);
+		evictCacheForAiSuggestion(householdId);
 		return toDTO(savedExpense);
 	}
 
@@ -377,6 +386,11 @@ public class ExpenseService {
 
 		expense.setStatus(ExpenseStatus.APPROVED);
 		expenseRepo.save(expense);
+
+		evictCacheForAiSuggestion(householdId);
+		evictExpenseInRangeCaches(householdId,ExpenseStatus.PENDING);
+		evictExpenseInRangeCaches(householdId,ExpenseStatus.APPROVED);
+
 		settlementService.createSettlementsForExpense(expense);
 
 		CreateExpenseResponseDTO response = toDTO(expense);
@@ -407,9 +421,13 @@ public class ExpenseService {
 				new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId)
 		);
 		expenseRepo.save(expense);
+		evictExpenseInRangeCaches(householdId,ExpenseStatus.PENDING);
+		evictExpenseInRangeCaches(householdId,ExpenseStatus.REJECTED);
+		evictCacheForAiSuggestion(householdId);
 	}
 
 	//filter query
+	@Cacheable(key = "#householdId + ':' + #status + ':' + #range",cacheNames = EXPENSE_IN_RANGE)
 	public List<CreateExpenseResponseDTO> getExpenseByPeriod(ExpenseStatus status,Long householdId,TimeRange range){
 		LocalDate now=LocalDate.now();
 		LocalDate start;
@@ -503,5 +521,24 @@ public class ExpenseService {
                         """+paragraph;
 	}
 
+	private void evictCacheForAiSuggestion(Long householdId){
+		String key=String.valueOf(householdId);
+		Cache cache=cacheManager.getCache(AI_SUGGESTION);
+		if(cache!=null){
+			cache.evict(key);
+		}
+	}
 
+	//evict all combination in range with id and status
+	private void evictExpenseInRangeCaches(Long householdId, ExpenseStatus changedStatus) {
+		Cache cache = cacheManager.getCache(EXPENSE_IN_RANGE);
+		if (cache == null) {
+			return;
+		}
+
+		for (TimeRange range : TimeRange.values()) {
+			cache.evict(householdId + ":" + changedStatus + ":" + range);
+			cache.evict(householdId + ":" + null + ":" + range);
+		}
+	}
 }
