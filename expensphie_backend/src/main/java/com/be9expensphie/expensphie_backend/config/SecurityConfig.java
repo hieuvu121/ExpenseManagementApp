@@ -40,11 +40,12 @@ public class SecurityConfig {
         httpSecurity.cors(Customizer.withDefaults())
                     .csrf(csrfCustomizer -> csrfCustomizer.disable())
                             .authorizeHttpRequests(request -> request.requestMatchers("/app-status", "/register",
-                             "/activate", "/login", "/forgot-password/**", "/chat/**", "/chat")
+                             "/activate", "/login", "/logout", "/forgot-password/**", "/chat/**", "/chat")
                             .permitAll()
                             .anyRequest().authenticated())
                             .httpBasic(httpBasic -> httpBasic.disable())
-                            .formLogin(form -> form.disable()) 
+                            .formLogin(form -> form.disable())
+                            .logout(logout -> logout.disable())
                             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                             .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();

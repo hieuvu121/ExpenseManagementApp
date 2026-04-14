@@ -32,6 +32,17 @@ export const removeAuthToken = (): void => {
 };
 
 /**
+ * Clear all locally persisted auth/session data
+ */
+export const clearAuthSession = (): void => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("authUser");
+  localStorage.removeItem("activeHouseholdId");
+  localStorage.removeItem("memberId");
+  localStorage.removeItem("memberRole");
+};
+
+/**
  * Make authenticated API request
  */
 export const apiRequest = async (
@@ -63,4 +74,11 @@ export const apiRequest = async (
   }
 
   return response;
+};
+
+/**
+ * Log out current user on backend
+ */
+export const logoutUser = async (): Promise<void> => {
+  await apiRequest("/logout", { method: "POST" });
 };

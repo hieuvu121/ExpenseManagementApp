@@ -15,7 +15,7 @@ public interface HouseholdRepository extends JpaRepository<Household,Long> {
 	boolean existsByName(String name);
 	
 	Optional<Household>findByCode(String code);
-	
+
 
 }
 

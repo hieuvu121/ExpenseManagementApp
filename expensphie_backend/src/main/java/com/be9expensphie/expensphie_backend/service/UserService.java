@@ -1,10 +1,14 @@
 package com.be9expensphie.expensphie_backend.service;
 
+import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import com.be9expensphie.expensphie_backend.producer.EmailProducer;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -29,6 +33,7 @@ public class UserService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final EmailProducer emailProducer;
+    private final RedisTemplate<String,String> redisTemplate;
     @Value("${app.base-url}")
     private String baseUrl;
 
@@ -127,6 +132,30 @@ public class UserService {
             );
         } catch (Exception e) {
             throw new RuntimeException("Invalid email or password");
+        }
+    }
+
+    public String logOut(HttpServletRequest request){
+        try {
+            //take header + extract token
+            String authHeader=request.getHeader("Authorization");
+            if(authHeader==null||!authHeader.startsWith("Bearer ")){
+                throw new RuntimeException("invalid authorization header.");
+            }
+
+            //extract token
+            String token=authHeader.substring(7);
+            Date expire = jwtUtil.extractExpiration(token);
+
+            //count ttl to put into redis
+            long ttl = expire.getTime() - System.currentTimeMillis();
+
+            if (ttl > 0) {
+                redisTemplate.opsForValue().set("blacklist:" + token, "true", ttl, TimeUnit.MILLISECONDS);
+            }
+            return "log out successful";
+        }catch (Exception e){
+            return ("message"+e.getMessage());
         }
     }
 }

@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.controller;
 
 import java.util.Map;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -59,5 +60,15 @@ public class UserController {
     @GetMapping("/test-auth")
     public String checkAuth() {
         return "Auth impl is successful";
+    }
+
+    //log out
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(userService.logOut(request));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 }
