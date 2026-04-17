@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.service;
 
 import com.be9expensphie.expensphie_backend.dto.CursorDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseEventDTO.CreateExpenseEventDTO;
+import com.be9expensphie.expensphie_backend.event.WebSocketEvent;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Pageable;
 
@@ -22,6 +23,7 @@ import com.be9expensphie.expensphie_backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -62,6 +64,7 @@ public class ExpenseService {
 	private final CacheManager cacheManager;
 	private static final String AI_SUGGESTION = "ai_suggestion";
 	private static final String EXPENSE_IN_RANGE="expense_in_range";
+	private final KafkaTemplate<String, WebSocketEvent> wsKafkaTemplate;
 	@Autowired
 	private final ObjectMapper mapper;
 
@@ -129,9 +132,12 @@ public class ExpenseService {
 		}
 
 		CreateExpenseResponseDTO response = toDTO(savedExpense);
-		messagingTemplate.convertAndSend(
-				expenseTopic(householdId),
-				new CreateExpenseEventDTO("EXPENSE_CREATED", response, householdId)
+		wsKafkaTemplate.send(
+				"websocket-events",
+				new WebSocketEvent(
+						expenseTopic(householdId),
+						new CreateExpenseEventDTO("EXPENSE_CREATED", response, householdId)
+				)
 		);
 		return response;
 	}
@@ -394,9 +400,12 @@ public class ExpenseService {
 		settlementService.createSettlementsForExpense(expense);
 
 		CreateExpenseResponseDTO response = toDTO(expense);
-		messagingTemplate.convertAndSend(
-				expenseTopic(householdId),
-				new CreateExpenseEventDTO("EXPENSE_ACCEPTED", response, householdId)
+		wsKafkaTemplate.send(
+				"websocket-events",
+				new WebSocketEvent(
+						expenseTopic(householdId),
+						new CreateExpenseEventDTO("EXPENSE_ACCEPTED", response, householdId)
+				)
 		);
 
 		return response;
@@ -416,9 +425,12 @@ public class ExpenseService {
 		}
 		expense.setStatus(ExpenseStatus.REJECTED);
 
-		messagingTemplate.convertAndSend(
-				expenseTopic(householdId),
-				new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId)
+		wsKafkaTemplate.send(
+				"websocket-events",
+				new WebSocketEvent(
+						expenseTopic(householdId),
+						new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId)
+				)
 		);
 		expenseRepo.save(expense);
 		evictExpenseInRangeCaches(householdId,ExpenseStatus.PENDING);

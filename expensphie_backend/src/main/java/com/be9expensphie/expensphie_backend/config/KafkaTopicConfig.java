@@ -17,4 +17,12 @@ public class KafkaTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    @Bean
+    public NewTopic websocketEventsTopic(){
+        return TopicBuilder.name("websocket-events")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
 }
