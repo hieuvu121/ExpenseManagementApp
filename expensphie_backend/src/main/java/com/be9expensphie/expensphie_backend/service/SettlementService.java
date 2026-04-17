@@ -272,8 +272,9 @@ public class SettlementService {
             if (!householdId.equals(householdMember.getHousehold().getId())) {
                 throw new IllegalArgumentException("Household member does not belong to the specified household");
             }
+            LocalDate threeMonthsAgo = LocalDate.now().minusMonths(3);
             List<SettlementEntity> lastThreeMonthsPendingSettlements = settlementRepository
-                    .findLastThreeMonthsPendingSettlementsForMember(householdMember);
+                    .findLastThreeMonthsPendingSettlementsForMember(householdMember, threeMonthsAgo);
             BigDecimal totalPendingAmount = settlementRepository
                     .findLastThreeMonthsTotalPendingAmountForMember(householdMember);
             return Map.of(
@@ -347,13 +348,17 @@ public class SettlementService {
         }
 
         HouseholdMember receiver = expense.getCreated_by();
-        //for O1 checking
+        List<ExpenseSplitDetailsEntity> splits = expense.getSplitDetails();
+        Set<Long> existingSplitIds = splits.isEmpty()
+                ? java.util.Collections.emptySet()
+                : settlementRepository.findExistingSplitIds(splits);
+
         Set<Long> affectedMemberIds = new HashSet<>();
-        for (ExpenseSplitDetailsEntity splitDetails : expense.getSplitDetails()) {
+        for (ExpenseSplitDetailsEntity splitDetails : splits) {
             if (splitDetails.getMember().getId().equals(receiver.getId())) {
                 continue;
             }
-            if (settlementRepository.existsByExpenseSplitDetails(splitDetails)) {
+            if (existingSplitIds.contains(splitDetails.getId())) {
                 continue;
             }
 

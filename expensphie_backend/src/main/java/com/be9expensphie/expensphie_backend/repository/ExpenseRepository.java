@@ -34,16 +34,19 @@ public interface ExpenseRepository extends JpaRepository<ExpenseEntity,Long>{
 	List<ExpenseEntity>fetchsplitDeatils(@Param("expenses") List<ExpenseEntity> expenses);
 	
 	//get expense based on status
-	@Query(
-			"select e from ExpenseEntity e "
-			+ "where e.household.id= :householdId "
-			+ "and e.status = :status "
-					+ "and e.id<:cursor order by e.id desc"
-			)
+	@Query("select distinct e from ExpenseEntity e " +
+			"left join fetch e.created_by cb " +
+			"left join fetch cb.user " +
+			"left join fetch e.reviewed_by rb " +
+			"left join fetch rb.user " +
+			"left join fetch e.household " +
+			"where e.household.id = :householdId " +
+			"and e.status = :status " +
+			"and e.id < :cursor order by e.id desc")
 	List<ExpenseEntity> findExpenseByStatus(
 			@Param("householdId") Long householdId,
 			@Param("status") ExpenseStatus status,
-			@Param("cursor")Long cursor,
+			@Param("cursor") Long cursor,
 			Pageable pageable
 			);
 	
