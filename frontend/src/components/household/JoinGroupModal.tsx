@@ -241,6 +241,12 @@ export default function JoinGroupModal({ isOpen, onClose }: JoinGroupModalProps)
                       <div key={h.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div>
                           <div className="font-medium text-gray-800 dark:text-white/90">{h.name}</div>
+                          <div className="text-xs text-gray-500">
+                            Code:{" "}
+                            <span className="font-mono font-medium text-brand-600 dark:text-brand-400">
+                              {h.code || "Unavailable"}
+                            </span>
+                          </div>
                           <div className="text-xs text-gray-500">Admin: {h.role === 'ROLE_ADMIN' ? 'You' : 'Unknown'}</div>
                         </div>
                         <button

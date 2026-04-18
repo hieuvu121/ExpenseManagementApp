@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { Link, useNavigate } from "react-router";
+import { clearAuthSession, logoutUser } from "../../services/coreApi";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,17 +36,19 @@ export default function UserDropdown() {
     setIsOpen(false);
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     const shouldLogout = window.confirm("Are you sure you want to sign out?");
     if (!shouldLogout) {
       return;
     }
 
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("authUser");
-    localStorage.removeItem("activeHouseholdId");
-    localStorage.removeItem("memberId");
-    localStorage.removeItem("memberRole");
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Logout request failed:", error);
+    } finally {
+      clearAuthSession();
+    }
 
     closeDropdown();
     navigate("/TailAdmin/signin");

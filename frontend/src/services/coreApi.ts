@@ -1,6 +1,7 @@
-// Use relative path to leverage Vite dev server proxy during development.
-// For production, set VITE_API_BASE_URL to the full backend URL.
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ;
+// Use the configured backend URL, falling back to local API when unset.
+const DEFAULT_API_BASE_URL = "http://localhost:8080/app/v1";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
 
 /**
  * Get authentication token from localStorage
@@ -28,6 +29,17 @@ export const saveAuthToken = (token: string): void => {
  */
 export const removeAuthToken = (): void => {
   localStorage.removeItem("authToken");
+};
+
+/**
+ * Clear all locally persisted auth/session data
+ */
+export const clearAuthSession = (): void => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("authUser");
+  localStorage.removeItem("activeHouseholdId");
+  localStorage.removeItem("memberId");
+  localStorage.removeItem("memberRole");
 };
 
 /**
@@ -62,4 +74,11 @@ export const apiRequest = async (
   }
 
   return response;
+};
+
+/**
+ * Log out current user on backend
+ */
+export const logoutUser = async (): Promise<void> => {
+  await apiRequest("/logout", { method: "POST" });
 };

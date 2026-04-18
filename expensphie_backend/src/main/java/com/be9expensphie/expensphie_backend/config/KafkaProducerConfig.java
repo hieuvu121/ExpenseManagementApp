@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.config;
 //create kafka template
 
 import com.be9expensphie.expensphie_backend.event.EmailEvent;
+import com.be9expensphie.expensphie_backend.event.WebSocketEvent;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -39,5 +40,19 @@ public class KafkaProducerConfig {
     @Bean
     public KafkaTemplate<String, EmailEvent> kafkaTemplate() {
         return new KafkaTemplate<>(producerFactory());
+    }
+
+    @Bean
+    public ProducerFactory<String,WebSocketEvent> wsProducerFactory(){
+        Map<String,Object> config=new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,bootstrapServers);
+        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,StringSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(config);
+    }
+
+    @Bean
+    public KafkaTemplate<String, WebSocketEvent> wsKafkaTemplate(){
+        return new KafkaTemplate<>(wsProducerFactory());
     }
 }

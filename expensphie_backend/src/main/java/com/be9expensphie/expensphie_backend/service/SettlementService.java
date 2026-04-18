@@ -1,11 +1,16 @@
 package com.be9expensphie.expensphie_backend.service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.be9expensphie.expensphie_backend.dto.CursorDTO;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -32,10 +37,14 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class SettlementService {
+    private static final String CACHE_SETTLEMENT_STATS_CURRENT_MONTH = "settlement-stats-current-month";
+    private static final String CACHE_SETTLEMENT_STATS_LAST_THREE_MONTHS = "settlement-stats-last-three-months";
+
     private final SettlementRepository settlementRepository;
     private final UserService userService;
     private final HouseholdMemberRepository householdMemberRepository;
     private final HouseholdRepository householdRepository;
+    private final CacheManager cacheManager;
 
     @SuppressWarnings("null")
     public CursorDTO<SettlementDTO> getSettlementsForCurrentUser(Long memberId, Long householdId, int limit,Long cursor) {
@@ -111,6 +120,7 @@ public class SettlementService {
             }
 
             SettlementEntity newSettlement = settlementRepository.save(settlement);
+            evictSettlementStatsCachesForMember(memberId, householdMember.getHousehold().getId());
             return toDTO(newSettlement);
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to toggle settlement status: " + e.getMessage());
@@ -165,6 +175,9 @@ public class SettlementService {
 
             settlement.setStatus(SettlementStatus.COMPLETED);
             SettlementEntity updated = settlementRepository.save(settlement);
+            evictSettlementStatsCachesForMember(
+                    settlement.getFromMember().getId(),
+                    settlement.getFromMember().getHousehold().getId());
             return toDTO(updated);
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to approve settlement: " + e.getMessage());
@@ -195,6 +208,9 @@ public class SettlementService {
 
             settlement.setStatus(SettlementStatus.PENDING);
             SettlementEntity updated = settlementRepository.save(settlement);
+            evictSettlementStatsCachesForMember(
+                    settlement.getFromMember().getId(),
+                    settlement.getFromMember().getHousehold().getId());
             return toDTO(updated);
         } catch (NoSuchElementException e) {
             throw new NoSuchElementException("Failed to reject settlement: " + e.getMessage());
@@ -204,6 +220,10 @@ public class SettlementService {
     }
 
     @SuppressWarnings("null")
+    @Cacheable(
+            cacheNames = CACHE_SETTLEMENT_STATS_CURRENT_MONTH,
+            key = "#memberId + ':' + #householdId"
+    )
     public Map<String, Object> getCurrentMonthSettlementStatisticsForMember(Long memberId, Long householdId) {
         try {
             UserEntity user = userService.getCurrentUser();
@@ -235,6 +255,10 @@ public class SettlementService {
     }
 
     @SuppressWarnings("null")
+    @Cacheable(
+            cacheNames = CACHE_SETTLEMENT_STATS_LAST_THREE_MONTHS,
+            key = "#memberId + ':' + #householdId"
+    )
     public Map<String, Object> getLastThreeMonthsSettlementStatisticsForMember(Long memberId, Long householdId) {
         try {
             UserEntity user = userService.getCurrentUser();
@@ -248,8 +272,9 @@ public class SettlementService {
             if (!householdId.equals(householdMember.getHousehold().getId())) {
                 throw new IllegalArgumentException("Household member does not belong to the specified household");
             }
+            LocalDate threeMonthsAgo = LocalDate.now().minusMonths(3);
             List<SettlementEntity> lastThreeMonthsPendingSettlements = settlementRepository
-                    .findLastThreeMonthsPendingSettlementsForMember(householdMember);
+                    .findLastThreeMonthsPendingSettlementsForMember(householdMember, threeMonthsAgo);
             BigDecimal totalPendingAmount = settlementRepository
                     .findLastThreeMonthsTotalPendingAmountForMember(householdMember);
             return Map.of(
@@ -323,11 +348,17 @@ public class SettlementService {
         }
 
         HouseholdMember receiver = expense.getCreated_by();
-        for (ExpenseSplitDetailsEntity splitDetails : expense.getSplitDetails()) {
+        List<ExpenseSplitDetailsEntity> splits = expense.getSplitDetails();
+        Set<Long> existingSplitIds = splits.isEmpty()
+                ? java.util.Collections.emptySet()
+                : settlementRepository.findExistingSplitIds(splits);
+
+        Set<Long> affectedMemberIds = new HashSet<>();
+        for (ExpenseSplitDetailsEntity splitDetails : splits) {
             if (splitDetails.getMember().getId().equals(receiver.getId())) {
                 continue;
             }
-            if (settlementRepository.existsByExpenseSplitDetails(splitDetails)) {
+            if (existingSplitIds.contains(splitDetails.getId())) {
                 continue;
             }
 
@@ -342,6 +373,29 @@ public class SettlementService {
                     .build();
 
             settlementRepository.save(settlement);
+            affectedMemberIds.add(splitDetails.getMember().getId());
+        }
+
+        if (!affectedMemberIds.isEmpty()) {
+            Long householdId = expense.getHousehold().getId();
+            for (Long memberId : affectedMemberIds) {
+                //remove cache for only affected members
+                evictSettlementStatsCachesForMember(memberId, householdId);
+            }
+        }
+    }
+
+    //helper to reduce duplication evict
+    void evictSettlementStatsCachesForMember(Long memberId, Long householdId) {
+        String key = memberId + ":" + householdId;
+        evictCache(CACHE_SETTLEMENT_STATS_CURRENT_MONTH, key);
+        evictCache(CACHE_SETTLEMENT_STATS_LAST_THREE_MONTHS, key);
+    }
+
+    private void evictCache(String cacheName, String key) {
+        Cache cache = cacheManager.getCache(cacheName);
+        if (cache != null) {
+            cache.evict(key);
         }
     }
 }

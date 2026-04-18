@@ -21,6 +21,14 @@ interface MemberDTO {
   role: string;
 }
 
+export interface HouseholdSummary {
+  id: number;
+  name: string;
+  code: string;
+  role: string;
+  memberId?: number;
+}
+
 export interface Expense {
   id: number;
   title?: string;
@@ -47,7 +55,7 @@ export const householdAPI = {
   /**
    * Get all households for current user
    */
-  getMyHouseholds: async () => {
+  getMyHouseholds: async (): Promise<HouseholdSummary[]> => {
     const response = await apiRequest("/households/my");
     return response.json();
   },

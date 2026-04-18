@@ -6,7 +6,9 @@ import java.util.function.Function;
 
 import javax.crypto.SecretKey;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -14,10 +16,12 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
+@RequiredArgsConstructor
 @Component
 public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
+    private final RedisTemplate<String,String> redisTemplate;
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
@@ -59,6 +63,10 @@ public class JwtUtil {
 
     public boolean validateToken(String token, UserDetails userDetails) {
         String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        return username.equals(userDetails.getUsername()) && !isTokenExpired(token) && !isBlacklisted(token);
+    }
+
+    public boolean isBlacklisted(String token) {
+        return redisTemplate.hasKey("blacklist:" + token);
     }
 }

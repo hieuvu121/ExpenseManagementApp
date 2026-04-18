@@ -2,15 +2,19 @@ package com.be9expensphie.expensphie_backend.service;
 
 import com.be9expensphie.expensphie_backend.dto.CursorDTO;
 import com.be9expensphie.expensphie_backend.dto.ExpenseEventDTO.CreateExpenseEventDTO;
+import com.be9expensphie.expensphie_backend.event.WebSocketEvent;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Pageable;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.be9expensphie.expensphie_backend.entity.*;
@@ -19,6 +23,7 @@ import com.be9expensphie.expensphie_backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -35,6 +40,8 @@ import com.be9expensphie.expensphie_backend.security.HouseholdSecurity;
 import com.be9expensphie.expensphie_backend.validation.ExpenseValidation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +61,10 @@ public class ExpenseService {
 	private final ExpenseSplitDetailsRepository expenseSplitDetailsRepo;
 	private final SettlementRepository settlementRepository;
 	private final SimpMessagingTemplate messagingTemplate;
+	private final CacheManager cacheManager;
+	private static final String AI_SUGGESTION = "ai_suggestion";
+	private static final String EXPENSE_IN_RANGE="expense_in_range";
+	private final KafkaTemplate<String, WebSocketEvent> wsKafkaTemplate;
 	@Autowired
 	private final ObjectMapper mapper;
 
@@ -114,14 +125,19 @@ public class ExpenseService {
 			expense.getSplitDetails().add(splitDetails);
 		}
 		ExpenseEntity savedExpense = expenseRepo.save(expense);
+		evictExpenseInRangeCaches(householdId,status);
+		evictCacheForAiSuggestion(householdId);
 		if (savedExpense.getStatus() == ExpenseStatus.APPROVED) {
 			settlementService.createSettlementsForExpense(savedExpense);
 		}
 
 		CreateExpenseResponseDTO response = toDTO(savedExpense);
-		messagingTemplate.convertAndSend(
-				expenseTopic(householdId),
-				new CreateExpenseEventDTO("EXPENSE_CREATED", response, householdId)
+		wsKafkaTemplate.send(
+				"websocket-events",
+				new WebSocketEvent(
+						expenseTopic(householdId),
+						new CreateExpenseEventDTO("EXPENSE_CREATED", response, householdId)
+				)
 		);
 		return response;
 	}
@@ -248,6 +264,7 @@ public class ExpenseService {
 
 		//check with each split if exist->use that, if not-> create
 		if(request.getSplits()!=null && !request.getSplits().isEmpty()) {
+			Set<Long> affectedSettlementMembers = new HashSet<>();
 			//take all member ids.
 			List<Long> memberIds=request.getSplits().stream().map(SplitRequestDTO::getMemberId).toList();
 			//batch fetch all id instead of iterate through all
@@ -272,37 +289,55 @@ public class ExpenseService {
 					.filter(s -> s.getExpenseSplitDetails() != null && s.getExpenseSplitDetails().getId() != null)
 					.collect(Collectors.toMap(s -> s.getExpenseSplitDetails().getId(), s -> s));
 
-		for(SplitRequestDTO splitRequest : request.getSplits()){
-			HouseholdMember member=memberMap.get(splitRequest.getMemberId());
-			//query member
-			if (member == null) {
-				throw new RuntimeException("Member not found: " + splitRequest.getMemberId());
-			}
-
-			//query split
-			ExpenseSplitDetailsEntity split=splitMaps.get(splitRequest.getMemberId());
-			if(split==null){
-				split=ExpenseSplitDetailsEntity.builder()
-						.expense(expense)
-						.member(member)
-						.amount(splitRequest.getAmount())
-						.build();
-				expense.getSplitDetails().add(split);
-			}else{
-				split.setAmount(splitRequest.getAmount());
-			}
-
-			//if settlement new
-			if(expense.getStatus()==ExpenseStatus.APPROVED&&!expense.getCreated_by().equals(split.getMember())){
-				SettlementEntity settlement=null;
-				if(split.getId()!=null){
-					settlement=settlementBySplitId.get(split.getId());
+			for(SplitRequestDTO splitRequest : request.getSplits()){
+				HouseholdMember member=memberMap.get(splitRequest.getMemberId());
+				//query member
+				if (member == null) {
+					throw new RuntimeException("Member not found: " + splitRequest.getMemberId());
 				}
-				//current settlement
-				if(settlement!=null){
-					//take settlement out if not null
-					if(settlement.getStatus()==SettlementStatus.COMPLETED){
-						//if completed-> create new settlement
+
+				//query split
+				ExpenseSplitDetailsEntity split=splitMaps.get(splitRequest.getMemberId());
+				if(split==null){
+					split=ExpenseSplitDetailsEntity.builder()
+							.expense(expense)
+							.member(member)
+							.amount(splitRequest.getAmount())
+							.build();
+					expense.getSplitDetails().add(split);
+				}else{
+					split.setAmount(splitRequest.getAmount());
+				}
+
+				//if settlement new
+				if(expense.getStatus()==ExpenseStatus.APPROVED&&!expense.getCreated_by().equals(split.getMember())){
+					SettlementEntity settlement=null;
+					if(split.getId()!=null){
+						settlement=settlementBySplitId.get(split.getId());
+					}
+					//current settlement
+					if(settlement!=null){
+						//take settlement out if not null
+						if(settlement.getStatus()==SettlementStatus.COMPLETED){
+							//if completed-> create new settlement
+							SettlementEntity newSettlement=SettlementEntity.builder()
+									.fromMember(split.getMember())
+									.toMember(expense.getCreated_by())
+									.expenseSplitDetails(split)
+									.amount(split.getAmount())
+									.date(expense.getDate())
+									.currency(expense.getCurrency())
+									.status(SettlementStatus.PENDING)
+									.build();
+							settlementRepository.save(newSettlement);
+						}else{
+							//else, change amount
+							settlement.setAmount(split.getAmount());
+							settlement.setCurrency(expense.getCurrency());
+							settlementRepository.save(settlement);
+						}
+						//new settlement
+					}else{
 						SettlementEntity newSettlement=SettlementEntity.builder()
 								.fromMember(split.getMember())
 								.toMember(expense.getCreated_by())
@@ -313,31 +348,20 @@ public class ExpenseService {
 								.status(SettlementStatus.PENDING)
 								.build();
 						settlementRepository.save(newSettlement);
-					}else{
-						//else, change amount
-						settlement.setAmount(split.getAmount());
-						settlement.setCurrency(expense.getCurrency());
-						settlementRepository.save(settlement);
 					}
-					//new settlement
-				}else{
-					SettlementEntity newSettlement=SettlementEntity.builder()
-							.fromMember(split.getMember())
-							.toMember(expense.getCreated_by())
-							.expenseSplitDetails(split)
-							.amount(split.getAmount())
-							.date(expense.getDate())
-							.currency(expense.getCurrency())
-							.status(SettlementStatus.PENDING)
-							.build();
-					settlementRepository.save(newSettlement);
-				}
+					affectedSettlementMembers.add(split.getMember().getId());
 
+				}
 			}
-		}
+			if (!affectedSettlementMembers.isEmpty()) {
+				for (Long memberId : affectedSettlementMembers) {
+					settlementService.evictSettlementStatsCachesForMember(memberId, householdId);
+				}
+			}
 		} // end if splits not null
 
 		ExpenseEntity savedExpense=expenseRepo.save(expense);
+		evictCacheForAiSuggestion(householdId);
 		return toDTO(savedExpense);
 	}
 
@@ -368,12 +392,20 @@ public class ExpenseService {
 
 		expense.setStatus(ExpenseStatus.APPROVED);
 		expenseRepo.save(expense);
+
+		evictCacheForAiSuggestion(householdId);
+		evictExpenseInRangeCaches(householdId,ExpenseStatus.PENDING);
+		evictExpenseInRangeCaches(householdId,ExpenseStatus.APPROVED);
+
 		settlementService.createSettlementsForExpense(expense);
 
 		CreateExpenseResponseDTO response = toDTO(expense);
-		messagingTemplate.convertAndSend(
-				expenseTopic(householdId),
-				new CreateExpenseEventDTO("EXPENSE_ACCEPTED", response, householdId)
+		wsKafkaTemplate.send(
+				"websocket-events",
+				new WebSocketEvent(
+						expenseTopic(householdId),
+						new CreateExpenseEventDTO("EXPENSE_ACCEPTED", response, householdId)
+				)
 		);
 
 		return response;
@@ -393,14 +425,21 @@ public class ExpenseService {
 		}
 		expense.setStatus(ExpenseStatus.REJECTED);
 
-		messagingTemplate.convertAndSend(
-				expenseTopic(householdId),
-				new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId)
+		wsKafkaTemplate.send(
+				"websocket-events",
+				new WebSocketEvent(
+						expenseTopic(householdId),
+						new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId)
+				)
 		);
 		expenseRepo.save(expense);
+		evictExpenseInRangeCaches(householdId,ExpenseStatus.PENDING);
+		evictExpenseInRangeCaches(householdId,ExpenseStatus.REJECTED);
+		evictCacheForAiSuggestion(householdId);
 	}
 
 	//filter query
+	@Cacheable(key = "#householdId + ':' + #status + ':' + #range",cacheNames = EXPENSE_IN_RANGE)
 	public List<CreateExpenseResponseDTO> getExpenseByPeriod(ExpenseStatus status,Long householdId,TimeRange range){
 		LocalDate now=LocalDate.now();
 		LocalDate start;
@@ -494,5 +533,24 @@ public class ExpenseService {
                         """+paragraph;
 	}
 
+	private void evictCacheForAiSuggestion(Long householdId){
+		String key=String.valueOf(householdId);
+		Cache cache=cacheManager.getCache(AI_SUGGESTION);
+		if(cache!=null){
+			cache.evict(key);
+		}
+	}
 
+	//evict all combination in range with id and status
+	private void evictExpenseInRangeCaches(Long householdId, ExpenseStatus changedStatus) {
+		Cache cache = cacheManager.getCache(EXPENSE_IN_RANGE);
+		if (cache == null) {
+			return;
+		}
+
+		for (TimeRange range : TimeRange.values()) {
+			cache.evict(householdId + ":" + changedStatus + ":" + range);
+			cache.evict(householdId + ":" + null + ":" + range);
+		}
+	}
 }

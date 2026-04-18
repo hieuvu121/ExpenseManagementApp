@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.be9expensphie.expensphie_backend.dto.ExpenseDTO.CreateExpenseResponseDTO;
@@ -13,6 +14,7 @@ import com.be9expensphie.expensphie_backend.repository.ExpenseRepository;
 public class GeminiService {
     private final ExpenseService expenseService;
     private final ChatClient chatClient;
+    private static final String AI_SUGGESTION="ai_suggestion";
 
     public GeminiService(ExpenseService expenseService,
             ExpenseRepository expenseRepo,
@@ -21,6 +23,7 @@ public class GeminiService {
         this.chatClient = chatClient;
     }
 
+    @Cacheable(key = "#householdId", cacheNames=AI_SUGGESTION)
     public String getExpenseSuggestions(Long householdId) {
         List<CreateExpenseResponseDTO> expenses = expenseService.getExpenseLastMonth(householdId);
 
