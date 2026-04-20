@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+
 import com.be9expensphie.expensphie_backend.producer.EmailProducer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -135,27 +136,18 @@ public class UserService {
         }
     }
 
-    public String logOut(HttpServletRequest request){
-        try {
-            //take header + extract token
-            String authHeader=request.getHeader("Authorization");
-            if(authHeader==null||!authHeader.startsWith("Bearer ")){
-                throw new RuntimeException("invalid authorization header.");
-            }
+    public void logOut(HttpServletRequest request){
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Invalid authorization header.");
+        }
 
-            //extract token
-            String token=authHeader.substring(7);
-            Date expire = jwtUtil.extractExpiration(token);
+        String token = authHeader.substring(7);
+        Date expire = jwtUtil.extractExpiration(token);
+        long ttl = expire.getTime() - System.currentTimeMillis();
 
-            //count ttl to put into redis
-            long ttl = expire.getTime() - System.currentTimeMillis();
-
-            if (ttl > 0) {
-                redisTemplate.opsForValue().set("blacklist:" + token, "true", ttl, TimeUnit.MILLISECONDS);
-            }
-            return "log out successful";
-        }catch (Exception e){
-            return ("message"+e.getMessage());
+        if (ttl > 0) {
+            redisTemplate.opsForValue().set("blacklist:" + token, "true", ttl, TimeUnit.MILLISECONDS);
         }
     }
 }

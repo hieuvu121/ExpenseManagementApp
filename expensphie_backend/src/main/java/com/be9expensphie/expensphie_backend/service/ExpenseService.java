@@ -24,7 +24,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -60,7 +59,6 @@ public class ExpenseService {
 	private final AiService aiService;
 	private final ExpenseSplitDetailsRepository expenseSplitDetailsRepo;
 	private final SettlementRepository settlementRepository;
-	private final SimpMessagingTemplate messagingTemplate;
 	private final CacheManager cacheManager;
 	private static final String AI_SUGGESTION = "ai_suggestion";
 	private static final String EXPENSE_IN_RANGE="expense_in_range";
@@ -132,13 +130,7 @@ public class ExpenseService {
 		}
 
 		CreateExpenseResponseDTO response = toDTO(savedExpense);
-		wsKafkaTemplate.send(
-				"websocket-events",
-				new WebSocketEvent(
-						expenseTopic(householdId),
-						new CreateExpenseEventDTO("EXPENSE_CREATED", response, householdId)
-				)
-		);
+		sendWebSocketEvent(expenseTopic(householdId), new CreateExpenseEventDTO("EXPENSE_CREATED", response, householdId));
 		return response;
 	}
 
@@ -400,14 +392,7 @@ public class ExpenseService {
 		settlementService.createSettlementsForExpense(expense);
 
 		CreateExpenseResponseDTO response = toDTO(expense);
-		wsKafkaTemplate.send(
-				"websocket-events",
-				new WebSocketEvent(
-						expenseTopic(householdId),
-						new CreateExpenseEventDTO("EXPENSE_ACCEPTED", response, householdId)
-				)
-		);
-
+		sendWebSocketEvent(expenseTopic(householdId), new CreateExpenseEventDTO("EXPENSE_ACCEPTED", response, householdId));
 		return response;
 	}
 
@@ -425,13 +410,7 @@ public class ExpenseService {
 		}
 		expense.setStatus(ExpenseStatus.REJECTED);
 
-		wsKafkaTemplate.send(
-				"websocket-events",
-				new WebSocketEvent(
-						expenseTopic(householdId),
-						new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId)
-				)
-		);
+		sendWebSocketEvent(expenseTopic(householdId), new CreateExpenseEventDTO("EXPENSE_REJECTED", toDTO(expense), householdId));
 		expenseRepo.save(expense);
 		evictExpenseInRangeCaches(householdId,ExpenseStatus.PENDING);
 		evictExpenseInRangeCaches(householdId,ExpenseStatus.REJECTED);
@@ -538,6 +517,14 @@ public class ExpenseService {
 		Cache cache=cacheManager.getCache(AI_SUGGESTION);
 		if(cache!=null){
 			cache.evict(key);
+		}
+	}
+
+	private void sendWebSocketEvent(String destination, Object payload) {
+		try {
+			wsKafkaTemplate.send("websocket-events", new WebSocketEvent(destination, mapper.writeValueAsString(payload)));
+		} catch (JsonProcessingException e) {
+			throw new RuntimeException("Failed to serialize WebSocket payload", e);
 		}
 	}
 

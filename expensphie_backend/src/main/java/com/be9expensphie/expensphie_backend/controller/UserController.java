@@ -62,13 +62,15 @@ public class UserController {
         return "Auth impl is successful";
     }
 
-    //log out
     @PostMapping("/logout")
     public ResponseEntity<String> logout(HttpServletRequest request) {
         try {
-            return ResponseEntity.ok(userService.logOut(request));
-        } catch (Exception e) {
+            userService.logOut(request);
+            return ResponseEntity.ok("Logged out successfully.");
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Logout failed.");
         }
     }
 }

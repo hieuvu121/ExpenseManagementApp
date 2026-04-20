@@ -40,7 +40,7 @@ public class SecurityConfig {
         httpSecurity.cors(Customizer.withDefaults())
                     .csrf(csrfCustomizer -> csrfCustomizer.disable())
                             .authorizeHttpRequests(request -> request.requestMatchers("/app-status", "/register",
-                             "/activate", "/login", "/logout", "/forgot-password/**", "/chat/**", "/chat")
+                             "/activate", "/login", "/forgot-password/**", "/chat/**", "/chat")
                             .permitAll()
                             .anyRequest().authenticated())
                             .httpBasic(httpBasic -> httpBasic.disable())
