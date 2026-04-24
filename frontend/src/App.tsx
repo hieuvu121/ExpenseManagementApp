@@ -26,16 +26,16 @@ import NoGroupsOnboarding from "./pages/NoGroupsOnboarding";
 export default function App() {
   return (
     <>
-      <Router>
+      <Router basename={import.meta.env.BASE_URL}>
         <ScrollToTop />
         <Routes>
           {/* Onboarding - Minimal Layout (No Sidebar) */}
-          <Route path="/TailAdmin/onboarding" element={<MinimalLayout />}>
+          <Route path="/onboarding" element={<MinimalLayout />}>
             <Route index element={<NoGroupsOnboarding />} />
           </Route>
 
           {/* Homepage Layout */}
-          <Route path="/TailAdmin/" element={<AppLayout />}>
+          <Route path="/" element={<AppLayout />}>
             <Route index element={<Home />} />
 
             {/* Others Page */}
@@ -67,8 +67,8 @@ export default function App() {
           </Route>
 
           {/* Auth Layout */}
-          <Route path="/TailAdmin/signin" element={<SignIn />} />
-          <Route path="/TailAdmin/signup" element={<SignUp />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
