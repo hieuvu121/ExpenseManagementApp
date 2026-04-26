@@ -15,7 +15,7 @@ export default function NoGroupsOnboarding() {
   // If user joins/creates a group, redirect to dashboard
   useEffect(() => {
     if (households.length > 0) {
-      navigate("/TailAdmin/", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [households, navigate]);
 

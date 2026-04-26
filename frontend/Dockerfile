@@ -6,7 +6,7 @@ RUN npm ci
 
 COPY . .
 ENV NODE_OPTIONS=--max-old-space-size=2048
-RUN npm run build
+RUN npm run build -- --mode development
 
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html/TailAdmin

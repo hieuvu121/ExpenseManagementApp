@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WebSocketEvent {
-    private String destination; // topic/expenses/...
-    private Object payload;
+    private String destination;
+    private String payload; // JSON-serialized event payload
 }

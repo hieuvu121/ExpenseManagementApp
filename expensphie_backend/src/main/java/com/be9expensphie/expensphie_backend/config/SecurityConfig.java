@@ -4,8 +4,10 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -39,8 +41,10 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception{
         httpSecurity.cors(Customizer.withDefaults())
                     .csrf(csrfCustomizer -> csrfCustomizer.disable())
-                            .authorizeHttpRequests(request -> request.requestMatchers("/app-status", "/register",
-                             "/activate", "/login", "/logout", "/forgot-password/**", "/chat/**", "/chat")
+                            .authorizeHttpRequests(request -> request
+                            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                            .requestMatchers("/app-status", "/register",
+                             "/activate", "/login", "/forgot-password/**", "/chat/**", "/chat")
                             .permitAll()
                             .anyRequest().authenticated())
                             .httpBasic(httpBasic -> httpBasic.disable())
@@ -56,18 +60,24 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(
+        configuration.setAllowedOriginPatterns(
                 Arrays.stream(allowedOrigins.split(","))
                         .map(String::trim)
                         .toList()
         );
-        configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization","Content-Type", "Accept"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    @Bean
+    public FilterRegistrationBean<JwtRequestFilter> jwtFilterRegistration(JwtRequestFilter filter) {
+        FilterRegistrationBean<JwtRequestFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

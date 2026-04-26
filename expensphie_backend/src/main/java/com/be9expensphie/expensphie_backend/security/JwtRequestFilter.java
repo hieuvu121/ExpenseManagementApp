@@ -2,6 +2,7 @@ package com.be9expensphie.expensphie_backend.security;
 
 import java.io.IOException;
 
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class JwtRequestFilter extends OncePerRequestFilter{
     private final UserDetailsService userDetailsService;
     private final JwtUtil jwtUtil;
+    private final RedisTemplate<String, String> redisTemplate;
 
     @Override
     protected void doFilterInternal(
@@ -43,7 +45,8 @@ public class JwtRequestFilter extends OncePerRequestFilter{
 
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
-            if (jwtUtil.validateToken(jwtToken, userDetails)) {
+            boolean blacklisted = Boolean.TRUE.equals(redisTemplate.hasKey("blacklist:" + jwtToken));
+            if (!blacklisted && jwtUtil.validateToken(jwtToken, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities()
                 );

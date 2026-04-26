@@ -26,7 +26,7 @@ export default function UserDropdown() {
 
   const displayName = authUser?.fullName || "Account";
   const displayEmail = authUser?.email || "No email";
-  const avatarSrc = authUser?.userImageUrl || "./images/user/owner.jpg";
+  const avatarSrc = authUser?.userImageUrl || "/images/user/owner.jpg";
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -51,7 +51,7 @@ export default function UserDropdown() {
     }
 
     closeDropdown();
-    navigate("/TailAdmin/signin");
+    navigate("/signin");
   };
   return (
     <div className="relative">
