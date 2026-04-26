@@ -27,6 +27,7 @@ import com.be9expensphie.expensphie_backend.service.ExpenseService;
 import com.be9expensphie.expensphie_backend.service.HouseholdMemberService;
 import com.be9expensphie.expensphie_backend.service.SettlementService;
 import com.be9expensphie.expensphie_backend.service.UserService;
+import com.be9expensphie.expensphie_backend.event.WebSocketEvent;
 import com.be9expensphie.expensphie_backend.validation.ExpenseValidation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,9 +37,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import javax.swing.text.html.Option;
@@ -87,6 +90,10 @@ public class ExpenseServiceTests {
     private ExpenseSplitDetailsRepository expenseSplitDetailsRepo;
     @Mock
     private SettlementRepository settlementRepository;
+    @Mock
+    private CacheManager cacheManager;
+    @Mock
+    private KafkaTemplate<String, WebSocketEvent> wsKafkaTemplate;
     @Mock
     private SimpMessagingTemplate messagingTemplate;
     @Mock
